@@ -1,0 +1,129 @@
+name: SDK Release (NuGet)
+
+# Publishes the SoundBoard.PluginApi NuGet package — and ONLY that package.
+#
+# Deliberately decoupled from the app release (`release.yml`, which fires on
+# `v*`). The plugin SDK is a stable contract that changes far less often than
+# the app, so it gets its own version line and its own tag namespace:
+#
+#   • App release:  tag `v1.2.3`        -> release.yml -> app + installers
+#   • SDK release:  tag `sdk-v1.0.0`    -> THIS workflow -> NuGet package only
+#
+# The two never collide: `release.yml` listens on `v*` (tags starting with
+# "v"); `sdk-v…` starts with "s" so it does not match. Push an `sdk-v*` tag
+# ONLY when SoundBoard.PluginApi has actually changed — no tag, no publish.
+#
+# Tag convention: `sdk-v<semver>` (e.g. `sdk-v1.0.0`, `sdk-v1.1.0-beta.1`).
+# The version stamped into the package is the tag with the `sdk-v` prefix
+# stripped. A `-` in the version makes NuGet treat it as a prerelease
+# automatically (hidden unless "include prerelease" is checked) — no extra
+# flag needed.
+#
+# Auth: Trusted Publishing (OIDC) — NO stored API-key secret. One-time setup
+# on nuget.org (account → Trusted Publishing) before the first run: add a
+# policy for nuget.org user `dsand64`, GitHub owner/repo
+# `DevinSanders/Game-Master-Sound-Board`, this workflow file
+# (`.github/workflows/sdk-release.yml`), package `SoundBoard.PluginApi`. The
+# `NuGet/login` step then exchanges this run's OIDC token for a short-lived
+# key. Note: the package id must already be owned by `dsand64` — if this is a
+# brand-new id, do ONE manual `dotnet nuget push` with an API key to claim it,
+# then all subsequent releases go through this keyless flow.
+
+on:
+  push:
+    tags: ['sdk-v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'SDK tag to publish (e.g. sdk-v1.0.0). Created on push normally; for a manual run, enter the version you want stamped.'
+        required: true
+
+permissions:
+  id-token: write   # mint the OIDC token nuget.org Trusted Publishing exchanges for a short-lived key
+  contents: write   # softprops/action-gh-release attaches the .nupkg to a GitHub Release
+
+jobs:
+  publish:
+    name: Pack + push SoundBoard.PluginApi
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Derive version from tag
+        id: ver
+        shell: bash
+        # On push, github.ref_name is the tag (e.g. "sdk-v1.1.0"). On a manual
+        # workflow_dispatch, ref_name is the branch, so read the `tag` input.
+        # Either way: strip the `sdk-v` prefix to get the bare package version.
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          VERSION="${TAG#sdk-v}"
+          if [ "$VERSION" = "$TAG" ]; then
+            echo "::error::Tag '$TAG' does not start with 'sdk-v'; refusing to publish."
+            exit 1
+          fi
+          echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Tag:     $TAG"
+          echo "Version: $VERSION"
+
+      - name: Pack
+        shell: bash
+        # -p:Version overrides the csproj's local-dev <Version> default so the
+        # package version tracks the tag. Packing builds in Release first, which
+        # also enforces the SDK's CS1591 public-API doc gate — a missing doc
+        # comment fails the release here rather than shipping undocumented API.
+        run: |
+          dotnet pack SoundBoard.PluginApi/SoundBoard.PluginApi.csproj \
+            --configuration Release \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            --output nupkgs
+
+      - name: Authenticate to nuget.org (Trusted Publishing / OIDC)
+        # Exchanges the workflow's OIDC token for a short-lived nuget.org API
+        # key — no long-lived secret stored in the repo. Requires a matching
+        # trusted-publishing policy on nuget.org under this account (see notes
+        # at the top of this file). Outputs NUGET_API_KEY for the push step.
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: dsand64
+
+      - name: Push to nuget.org
+        shell: bash
+        # --skip-duplicate makes a re-run (or a tag that was already published)
+        # a no-op instead of a hard failure, so the workflow is idempotent.
+        run: |
+          dotnet nuget push "nupkgs/*.nupkg" \
+            --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --skip-duplicate
+
+      - name: Attach package to a GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
+          body: |
+            `SoundBoard.PluginApi` ${{ steps.ver.outputs.version }} — the plugin/theme SDK.
+
+            Published to nuget.org. Plugin authors reference it with:
+
+                <PackageReference Include="SoundBoard.PluginApi" Version="${{ steps.ver.outputs.version }}" />
+
+            This release is the SDK contract only — it is independent of the
+            Game Master Sound Board application's own `v*` releases.
+          # A `-` in the tag (e.g. sdk-v1.1.0-beta.1) marks it as a prerelease.
+          prerelease: ${{ contains(steps.ver.outputs.tag, '-') }}
+          files: nupkgs/*.nupkg
+          fail_on_unmatched_files: true
