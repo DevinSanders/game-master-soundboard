@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SoundBoard.PluginApi</RootNamespace>
+    <AssemblyName>SoundBoard.PluginApi</AssemblyName>
+    <!-- This is the public plugin SDK, so every public type/member must be
+         XML-documented: CS1591 (missing-doc) stays ENABLED here and acts as
+         a tripwire if we add an undocumented public API. (Plugin authors'
+         own projects can suppress CS1591 in their csproj if they don't want
+         to document their internals — that's their choice, not ours.) -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- NuGet packaging metadata. Plugin authors install this package only;
+       they don't need (or get) the rest of SoundBoard.Core. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>SoundBoard.PluginApi</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Game Master Sound Board contributors</Authors>
+    <Description>Plugin and theme SDK for Game Master Sound Board. Implement IPlugin and one of the marker interfaces (IAudioCodecPlugin, IAudioSamplerPlugin, IAudioBridgePlugin, IThemePlugin, IUIExtensionPlugin) to extend the app.</Description>
+    <PackageTags>soundboard;plugin;sdk;theme;audio;ttrpg</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/DevinSanders/Game-Master-Sound-Board</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/DevinSanders/Game-Master-Sound-Board</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Ship the README on the NuGet listing page. -->
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ISampleProvider / WaveStream live in NAudio.Core. We intentionally
+         don't pull in NAudio.Wasapi / WinMM here — those are host-only,
+         Windows-only concerns. A theme-only plugin still gets NAudio.Core
+         transitively (~200 KB); that's the cost of giving codec/sampler
+         authors a stable type for the contract. -->
+    <PackageReference Include="NAudio.Core" Version="2.3.0" />
+  </ItemGroup>
+
+</Project>

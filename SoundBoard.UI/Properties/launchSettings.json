@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "SoundBoard.UI": {
+      "commandName": "Project",
+      "commandLineArgs": "--debug",
+      "environmentVariables": {
+        "//": "Same isolation as SoundBoard.Desktop — sandbox the dev run's data into a per-build folder. See SoundBoard.Desktop/Properties/launchSettings.json for the rationale.",
+        "GMSOUNDBOARD_APPDATA": "./.debug-appdata"
+      }
+    }
+  }
+}

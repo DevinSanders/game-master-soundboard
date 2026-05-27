@@ -1,0 +1,162 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             xmlns:controls="using:SoundBoard.UI.Controls"
+             xmlns:c="using:SoundBoard.UI.Converters"
+             x:Class="SoundBoard.UI.Views.PresetEditorView"
+             x:DataType="vm:PresetEditorViewModel">
+
+    <Grid RowDefinitions="Auto, Auto, *, Auto" Margin="20">
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto, Auto, *, Auto" Margin="0,0,0,12">
+            <Button Grid.Column="0" Click="OnPickIconClicked" Padding="6"
+                    Background="{DynamicResource PanelBackground2}"
+                    BorderBrush="{DynamicResource PanelBackground3}" BorderThickness="1"
+                    ToolTip.Tip="Pick icon for this preset" Margin="0,0,10,0">
+                <controls:RpgIcon IconName="{Binding PresetIcon}"
+                                  FontSize="24"
+                                  Foreground="{DynamicResource PrimaryAccent}"
+                                  Width="28" Height="28" />
+            </Button>
+            <TextBlock Grid.Column="1" Text="Preset:" FontSize="20" FontWeight="Bold"
+                       VerticalAlignment="Center" Margin="0,0,10,0" />
+            <TextBox Grid.Column="2" Text="{Binding PresetName}" FontSize="18" />
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" Margin="15,0,0,0">
+                <Button Content="🎛 FX Chain" Command="{Binding OpenFxChainCommand}"
+                        ToolTip.Tip="Configure the FX chain applied when this preset plays" />
+                <Button Content="▶ Play" Classes="primary" Command="{Binding PlayPreviewCommand}" />
+                <Button Content="■ Stop" Command="{Binding StopPreviewCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Bus override. Null = inherit each track's own routing.
+             Setting one forces every track this preset spawns through
+             the named bus regardless of the track's BusId. Use case:
+             a "Combat ambience" preset that routes its tracks through
+             Ambient even when those tracks normally play on Music. -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto, *" Margin="0,0,0,12">
+            <TextBlock Grid.Column="0" Text="Bus override:" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextSecondary}" Margin="0,0,10,0" />
+            <ComboBox Grid.Column="1"
+                      ItemsSource="{Binding AvailableBusChoices}"
+                      SelectedValue="{Binding PresetBusIdOverride, Mode=TwoWay}"
+                      SelectedValueBinding="{Binding Id}"
+                      DisplayMemberBinding="{Binding Label}"
+                      HorizontalAlignment="Stretch"
+                      ToolTip.Tip="Force every track this preset plays through a specific bus, or leave as 'Inherit' to use each track's own routing." />
+        </Grid>
+
+        <!-- Card grid: drop target for Library tracks -->
+        <Border x:Name="DropZone" Grid.Row="2"
+                Background="{DynamicResource PanelBackground1}" CornerRadius="8"
+                BorderThickness="2" BorderBrush="Transparent" Padding="6">
+            <Grid>
+                <!-- Empty-state hint -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                            IsVisible="{Binding !Cards.Count}" Spacing="6">
+                    <TextBlock Text="📥" FontSize="40" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondary}" />
+                    <TextBlock Text="Drag tracks from the Library window to add them to this preset."
+                               Foreground="{DynamicResource TextSecondary}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="The same track can be added multiple times — each with its own overrides."
+                               FontSize="11" Foreground="{DynamicResource TextSecondary}"
+                               HorizontalAlignment="Center" Margin="0,4,0,0" />
+                </StackPanel>
+
+                <ScrollViewer>
+                    <ItemsControl x:Name="CardItems" ItemsSource="{Binding Cards}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="vm:PresetTrackCardViewModel">
+                        <Border Width="330" Margin="5" Padding="12" CornerRadius="10"
+                                Background="{DynamicResource PanelBackground2}"
+                                BorderBrush="{DynamicResource PanelBackground3}" BorderThickness="1">
+                            <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto">
+                                <Grid.Styles>
+                                    <Style Selector="TextBlock.field">
+                                        <Setter Property="FontSize" Value="11" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="Width" Value="80" />
+                                    </Style>
+                                    <Style Selector="TextBlock.readout">
+                                        <Setter Property="FontSize" Value="11" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="TextAlignment" Value="Right" />
+                                        <Setter Property="Width" Value="45" />
+                                    </Style>
+                                </Grid.Styles>
+
+                                <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto">
+                                    <controls:RpgIcon Grid.Column="0" IconName="{Binding Entry.Track.Icon}"
+                                                      FontSize="20" Margin="0,0,8,0"
+                                                      Foreground="{DynamicResource PrimaryAccent}"
+                                                      VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding TrackName}"
+                                                   FontWeight="Bold" FontSize="15"
+                                                   Foreground="{DynamicResource TextPrimary}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding LengthDisplay}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource TextSecondary}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Content="✕"
+                                            Command="{Binding $parent[ItemsControl].((vm:PresetEditorViewModel)DataContext).RemoveCardCommand}"
+                                            CommandParameter="{Binding}"
+                                            Background="Transparent" Padding="6,2"
+                                            ToolTip.Tip="Remove from preset" />
+                                </Grid>
+
+                                <Grid Grid.Row="1" ColumnDefinitions="80, *, 45" Margin="0,8,0,0">
+                                    <TextBlock Grid.Column="0" Classes="field" Text="Volume" />
+                                    <Slider Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding OverrideVolume}" />
+                                    <TextBlock Grid.Column="2" Classes="readout"
+                                               Text="{Binding OverrideVolume, Converter={x:Static c:VolumePercentConverter.Instance}}" />
+                                </Grid>
+
+                                <Grid Grid.Row="2" ColumnDefinitions="80, *, 45" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="field" Text="Fade In" />
+                                    <Slider Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding OverrideFadeInSeconds}" />
+                                    <TextBlock Grid.Column="2" Classes="readout"
+                                               Text="{Binding OverrideFadeInSeconds, StringFormat='{}{0:F1}s'}" />
+                                </Grid>
+
+                                <Grid Grid.Row="3" ColumnDefinitions="80, *, 45" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="field" Text="Fade Out" />
+                                    <Slider Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding OverrideFadeOutSeconds}" />
+                                    <TextBlock Grid.Column="2" Classes="readout"
+                                               Text="{Binding OverrideFadeOutSeconds, StringFormat='{}{0:F1}s'}" />
+                                </Grid>
+
+                                <Grid Grid.Row="4" ColumnDefinitions="80, *, 45" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Classes="field" Text="Start Delay" />
+                                    <Slider Grid.Column="1" Minimum="0" Maximum="60" Value="{Binding OverrideStartDelaySeconds}" />
+                                    <TextBlock Grid.Column="2" Classes="readout"
+                                               Text="{Binding OverrideStartDelaySeconds, StringFormat='{}{0:F1}s'}" />
+                                </Grid>
+
+                                <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,6,0,0">
+                                    <ToggleSwitch IsChecked="{Binding IsLooping}"
+                                                  OnContent="Looping" OffContent="One-shot" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="3" Text="Tip: open the Library window and drag a track onto this view."
+                   FontSize="10" Foreground="{DynamicResource TextSecondary}"
+                   HorizontalAlignment="Center" Margin="0,8,0,0" />
+    </Grid>
+</UserControl>

@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest a new feature or improvement
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea? Great. Before filing, it's worth searching open issues — the same idea may already be tracked.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What use case isn't well served today? Skip this if it's purely an enhancement.
+      placeholder: When I'm running a session and want to …, today I have to …
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work? Sketches, mockups, or step-by-step flow welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you've tried, or alternative designs you thought about and ruled out.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Rough sense of how big this is, if you have one.
+      options:
+        - Small (single VM / view tweak)
+        - Medium (new view + plumbing)
+        - Large (new subsystem)
+        - Not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else

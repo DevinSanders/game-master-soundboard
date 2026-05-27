@@ -1,0 +1,172 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SoundBoard.UI.ViewModels"
+        xmlns:views="using:SoundBoard.UI.Views"
+        xmlns:controls="using:SoundBoard.UI.Controls"
+        xmlns:c="using:SoundBoard.UI.Converters"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="SoundBoard.UI.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="avares://SoundBoard.UI/Assets/app-icon.ico"
+        Title="Game Master Sound Board"
+        Background="{DynamicResource ContentBackground}"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="-1">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Window.DataTemplates>
+        <DataTemplate DataType="vm:LibraryViewModel">
+            <views:LibraryView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:PlaylistsViewModel">
+            <views:PlaylistsView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:TrackEditorViewModel">
+            <views:TrackEditorView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:SettingsViewModel">
+            <views:SettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:AboutViewModel">
+            <views:AboutView />
+        </DataTemplate>
+    </Window.DataTemplates>
+
+    <Grid RowDefinitions="Auto, *, Auto">
+        <!-- Custom Title Bar -->
+        <Border Grid.Row="0" Height="40" Background="{DynamicResource SidebarBackground}" PointerPressed="OnTitleBarPointerPressed">
+            <!-- Margin is platform-aware: on macOS App.axaml.cs overrides
+                 TitleBarContentMargin to (78,0,15,0) so the icon+title clear
+                 the OS-drawn traffic-light buttons. -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="{DynamicResource TitleBarContentMargin}">
+                <Image Source="avares://SoundBoard.UI/Assets/app-icon.ico" Width="20" Height="20" Margin="0,0,10,0" />
+                <TextBlock Text="Game Master Sound Board" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="250, *">
+            <!-- Sidebar -->
+            <Border Grid.Column="0" Background="{DynamicResource SidebarBackground}" Padding="20">
+                <Grid RowDefinitions="Auto, *, Auto">
+                    <!-- Logo Text -->
+                    <TextBlock Grid.Row="0" Text="GMSound" FontSize="28" FontWeight="Black" Foreground="{DynamicResource TextPrimary}" Margin="0,10,0,20"/>
+    
+                    <!-- Navigation -->
+                    <StackPanel Grid.Row="1" Spacing="8">
+                        <Button Content="🎛 Soundboard" Classes="nav" Command="{Binding NavigateCommand}" CommandParameter="Soundboard" IsEnabled="False" />
+                        <Button Content="📚 Library" Classes="nav" Command="{Binding OpenLibraryCommand}" />
+                        <Button Content="🎬 Presets" Classes="nav" Command="{Binding OpenPresetsCommand}" />
+                        <Button Content="📋 Playlists" Classes="nav" Command="{Binding OpenPlaylistsCommand}" />
+                        <Button Content="🔊 Mixer" Classes="nav" Command="{Binding OpenMixerCommand}" />
+                        <Button Content="🎚 Bus Mixer" Classes="nav" Command="{Binding OpenBusMixerCommand}" />
+                    </StackPanel>
+    
+                    <!-- Footer Navigation -->
+                    <StackPanel Grid.Row="2" Spacing="5">
+                        <Button Content="🔗 URI Builder" Classes="nav" Command="{Binding OpenUriBuilderCommand}" />
+                        <Button Content="⚙ Settings" Classes="nav" Command="{Binding OpenSettingsCommand}" />
+                        <Button Content="ℹ About" Classes="nav" Command="{Binding OpenAboutCommand}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+    
+            <!-- Main Content Area -->
+            <Border Grid.Column="1" Padding="20">
+                <TransitioningContentControl Content="{Binding CurrentViewModel}" />
+            </Border>
+        </Grid>
+
+        <!-- Now Playing Bar — visible whenever ANYTHING is in the mixer
+             (tracks, presets, or playlist-driven items). -->
+        <Border Grid.Row="2" Height="80" Background="{DynamicResource PanelBackground1}" BorderBrush="{DynamicResource PanelBackground3}" BorderThickness="0,1,0,0" IsVisible="{Binding HasActiveItems}">
+            <Grid ColumnDefinitions="*, Auto, Auto, Auto, Auto" Margin="30,0">
+                <!-- Info -->
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Text="NOW PLAYING" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource PrimaryAccent}" LetterSpacing="1" />
+                    <ItemsControl ItemsSource="{Binding ActiveItems}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="10" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:IActiveMixerItem">
+                                <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Master-output visualizer: shows the final mix (every track,
+                     every preset, post-plugin DSP), not just whatever's
+                     headlining the strip. Hidden when the window narrows
+                     below 900px so the action buttons and track list still
+                     fit without elbowing each other. -->
+                <controls:AudioVisualizer Grid.Column="1"
+                                          Width="480" Height="64"
+                                          VerticalAlignment="Center"
+                                          Margin="20,0,0,0"
+                                          Source="{Binding MasterOutput}"
+                                          BarBrush="{DynamicResource PrimaryAccent}"
+                                          IsVisible="{Binding $parent[Window].Bounds.Width, Converter={x:Static c:MinWidthVisibleConverter.Instance}, ConverterParameter=900}" />
+
+                <!-- Global transport controls. Prev / Next are only visible
+                     when exactly one playlist is the current playlist context;
+                     with zero or multiple playlists running, the buttons would
+                     be ambiguous about which session they target. -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="20,0,0,0">
+                    <Button Content="⏮" FontSize="16" Padding="10,8"
+                            ToolTip.Tip="Previous item in the current playlist"
+                            IsVisible="{Binding HasSoloPlaylist}"
+                            IsEnabled="{Binding SoloPlaylist.HasPreviousItem, FallbackValue=False}"
+                            Command="{Binding PlaylistSkipBackwardCommand}" />
+                    <ToggleButton IsChecked="{Binding GlobalIsPaused}"
+                                  Content="{Binding GlobalPlayPauseText}"
+                                  MinWidth="120" FontSize="12" Padding="12,8"
+                                  HorizontalContentAlignment="Center"
+                                  ToolTip.Tip="Pause or resume everything currently playing" />
+                    <Button Content="⏭" FontSize="16" Padding="10,8"
+                            ToolTip.Tip="Next item in the current playlist"
+                            IsVisible="{Binding HasSoloPlaylist}"
+                            IsEnabled="{Binding SoloPlaylist.HasNextItem, FallbackValue=False}"
+                            Command="{Binding PlaylistSkipForwardCommand}" />
+                    <Button Content="■ Stop all" FontSize="12" Padding="12,8"
+                            Background="{DynamicResource DangerBackground}" Foreground="{DynamicResource DangerForeground}"
+                            ToolTip.Tip="Stop every track, preset, and playlist"
+                            Command="{Binding StopAllPlaybackCommand}" />
+                </StackPanel>
+
+                <!-- Existing "Open Full Mixer" shortcut. -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center" Margin="20,0">
+                    <Button Content="🎚 Open Full Mixer" Classes="primary" Command="{Binding OpenMixerCommand}" FontSize="12" Padding="15,8" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+
+    <Window.Styles>
+        <Style Selector="Button.nav">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Padding" Value="15,10" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Button.nav:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ContentBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+        </Style>
+        <Style Selector="Button.nav:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ContentBackground}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryAccent}" />
+        </Style>
+    </Window.Styles>
+</Window>

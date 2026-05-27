@@ -1,0 +1,96 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             x:Class="SoundBoard.UI.Views.AboutView"
+             x:DataType="vm:AboutViewModel">
+
+    <ScrollViewer>
+        <StackPanel Spacing="30" MaxWidth="800" Margin="40">
+            <!-- Header Section: app icon + name/version block. The .ico is a
+                 256x256 master and Avalonia downsamples cleanly to 72 — same
+                 visual weight as the 36 pt app name beside it. -->
+            <StackPanel Orientation="Horizontal" Spacing="20">
+                <Image Source="avares://SoundBoard.UI/Assets/app-icon.ico"
+                       Width="72" Height="72" VerticalAlignment="Center" />
+                <StackPanel Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding AppName}" FontSize="36" FontWeight="Black" Foreground="{DynamicResource PrimaryAccent}" />
+                    <StackPanel Orientation="Horizontal" Spacing="15">
+                        <Border Background="{DynamicResource PrimaryAccent}" CornerRadius="4" Padding="8,4">
+                            <TextBlock Text="{Binding AppVersion, StringFormat='v{0}'}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource OnPrimaryAccent}" />
+                        </Border>
+                        <TextBlock Text="{Binding ReleaseDate, StringFormat='Released: {0}'}" FontSize="14" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Opacity="0.7" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Description -->
+            <Border Background="{DynamicResource PanelBackground2}" CornerRadius="12" Padding="25">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="About the Application" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                    <TextBlock Text="{Binding AppDescription}" TextWrapping="Wrap" LineHeight="24" FontSize="15" Foreground="{DynamicResource TextSecondary}" />
+                    
+                    <Border Height="1" Background="{DynamicResource TextSecondary}" Opacity="0.1" Margin="0,10" />
+                    
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="Developed by" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Opacity="0.6" />
+                        <TextBlock Text="{Binding Author}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                        <SelectableTextBlock Text="{Binding AuthorEmail}" FontSize="14" Foreground="{DynamicResource PrimaryAccent}" Cursor="Hand" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- License Section -->
+            <Border Background="{DynamicResource PanelBackground2}" CornerRadius="12" Padding="25">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="Licensing" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Border Background="{DynamicResource PrimaryAccent}" CornerRadius="4" Padding="8,4">
+                            <TextBlock Text="{Binding LicenseType}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource OnPrimaryAccent}" />
+                        </Border>
+                        <TextBlock Text="{Binding LicenseName}" FontSize="15" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}" />
+                    </StackPanel>
+                    
+                    <TextBlock Text="{Binding LicenseException}" TextWrapping="Wrap" LineHeight="20" FontSize="13" Foreground="{DynamicResource TextSecondary}" Opacity="0.8" />
+                    
+                    <Button Content="View Full License" Classes="link"
+                            Command="{Binding OpenUrlCommand}"
+                            CommandParameter="https://www.gnu.org/licenses/gpl-3.0.txt" />
+                </StackPanel>
+            </Border>
+
+            <!-- Third Party Attributions -->
+            <StackPanel Spacing="15">
+                <TextBlock Text="Third-Party Attributions &amp; Licensing" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                <TextBlock Text="This software uses several open-source libraries. We are grateful to the developers for their contributions to the community."
+                           TextWrapping="Wrap"
+                           FontSize="14" Foreground="{DynamicResource TextSecondary}" Opacity="0.8" Margin="0,0,0,10" />
+
+                <ItemsControl ItemsSource="{Binding Attributions}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{DynamicResource PanelBackground2}" CornerRadius="8" Padding="15" Margin="0,0,0,10">
+                                <Grid ColumnDefinitions="*, Auto, Auto">
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                                    </StackPanel>
+                                    
+                                    <Border Grid.Column="1" Background="{DynamicResource TextSecondary}" Opacity="0.1" CornerRadius="4" Padding="8,4" Margin="15,0">
+                                        <TextBlock Text="{Binding License}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" />
+                                    </Border>
+
+                                    <Button Grid.Column="2" Content="View License" Classes="link" Padding="0"
+                                            Command="{Binding $parent[ItemsControl].((vm:AboutViewModel)DataContext).OpenUrlCommand}"
+                                            CommandParameter="{Binding Url}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!-- Final Disclaimer -->
+            <TextBlock Text="Game Master Sound Board is provided 'as is' without warranty of any kind. All trademarks are the property of their respective owners." 
+                       TextWrapping="Wrap" FontSize="12" TextAlignment="Center" Foreground="{DynamicResource TextSecondary}" Opacity="0.5" Margin="0,20,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

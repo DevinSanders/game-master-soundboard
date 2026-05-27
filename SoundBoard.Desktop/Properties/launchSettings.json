@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "SoundBoard.Desktop": {
+      "commandName": "Project",
+      "commandLineArgs": "--debug",
+      "environmentVariables": {
+        "//": "GMSOUNDBOARD_APPDATA redirects all on-disk state (settings.json, Plugins/, Themes/, Libraries/, logs/) into a per-build sandbox so dev runs don't touch — and aren't touched by — the contributor's installed copy. Relative paths resolve against the binary folder; this lands at SoundBoard.Desktop/bin/Debug/net10.0/.debug-appdata/.",
+        "GMSOUNDBOARD_APPDATA": "./.debug-appdata"
+      }
+    }
+  }
+}

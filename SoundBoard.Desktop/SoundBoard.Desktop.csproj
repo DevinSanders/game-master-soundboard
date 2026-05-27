@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SoundBoard.UI\SoundBoard.UI.csproj" />
+    <ProjectReference Include="..\SoundBoard.Core\SoundBoard.Core.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- WinExe = Windows-subsystem executable; no console window flashes
+         on launch. Without this, double-clicking the .exe (or launching
+         from the Start menu shortcut) pops a black terminal alongside
+         the Avalonia window. End users see only the app window now.
+         Debug output still lands in
+         %LocalAppData%\GameMasterSoundBoard\logs\gmsound.log when the
+         debug flag is passed; dev workflows are unaffected, just look
+         at the log file instead of expecting a console.
+         `dotnet run` still works for in-source dev (the dotnet CLI runs
+         the WinExe under its own console pipe). -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>..\SoundBoard.UI\Assets\app-icon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+</Project>

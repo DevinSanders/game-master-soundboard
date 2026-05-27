@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- xunit v3 needs OutputType=Exe (it ships its own test host). -->
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- xunit v3 single-package + visualstudio runner. The v3 line is the
+         actively-developed branch; v2 is feature-frozen. Key reason to be
+         on v3 here: it composes cleanly with Avalonia.Headless.XUnit
+         (which depends on v3) so we get per-test [AvaloniaFact] dispatcher
+         bootstrap. -->
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+
+    <!-- Assertion + mocking. FluentAssertions 7.x is the last free-for-OSS
+         release; 8.x went commercial. Pin explicitly. Both libraries are
+         xunit-version-agnostic. -->
+    <PackageReference Include="FluentAssertions" Version="7.2.0" />
+    <PackageReference Include="NSubstitute" Version="5.3.0" />
+
+    <!-- SQLite in-memory for EF tests. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
+
+    <!-- Audio fakes need ISampleProvider. -->
+    <PackageReference Include="NAudio.Core" Version="2.3.0" />
+
+    <!-- Avalonia headless: [AvaloniaFact] / [AvaloniaTheory] from the
+         XUnit integration package handle dispatcher bootstrap per-test,
+         and pointer / visual construction works correctly. -->
+    <PackageReference Include="Avalonia" Version="12.0.3" />
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="12.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SoundBoard.Core\SoundBoard.Core.csproj" />
+    <ProjectReference Include="..\SoundBoard.PluginApi\SoundBoard.PluginApi.csproj" />
+    <ProjectReference Include="..\SoundBoard.UI\SoundBoard.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+    <Using Include="NSubstitute" />
+  </ItemGroup>
+
+</Project>

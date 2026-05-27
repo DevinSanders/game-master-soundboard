@@ -1,0 +1,100 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             x:Class="SoundBoard.UI.Views.ImportOptionsView"
+             x:DataType="vm:ImportOptionsViewModel">
+
+    <Grid RowDefinitions="Auto, *, Auto" Margin="20" RowSpacing="14">
+        <StackPanel Grid.Row="0" Spacing="4">
+            <TextBlock Text="Import Library" FontSize="20" FontWeight="Bold"
+                       Foreground="{DynamicResource TextPrimary}" />
+            <TextBlock Text="{Binding SourceFile}" FontSize="11"
+                       Foreground="{DynamicResource TextSecondary}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <!-- Scroll the middle section so the Create-New name field and any
+             search-directory rows can grow without pushing the buttons row
+             off-screen. The bottom buttons row stays pinned to the dialog
+             bottom regardless of content height. -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16">
+            <!-- Mode -->
+            <Border Background="{DynamicResource PanelBackground1}" CornerRadius="6" Padding="14">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Destination" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimary}" />
+
+                    <StackPanel Spacing="6">
+                        <RadioButton IsChecked="{Binding IsMergeMode}" GroupName="ImportMode">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Merge into the current library" FontWeight="SemiBold" />
+                                <TextBlock Text="Presets, playlists, and soundboard pages with the same name as ones being imported are replaced. Tracks are matched by file path and not duplicated."
+                                           FontSize="11" Foreground="{DynamicResource TextSecondary}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton IsChecked="{Binding IsNewLibraryMode}" GroupName="ImportMode">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Create a new library" FontWeight="SemiBold" />
+                                <TextBlock Text="Build a fresh library in your Application Data folder and import everything into it. The app will restart to load it."
+                                           FontSize="11" Foreground="{DynamicResource TextSecondary}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+
+                    <StackPanel Spacing="4" Margin="22,4,0,0" IsVisible="{Binding IsNewLibraryMode}">
+                        <TextBlock Text="New library name" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondary}" />
+                        <TextBox Text="{Binding NewLibraryName}"
+                                 PlaceholderText="e.g. Imported Campaign" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Search paths -->
+            <Border Background="{DynamicResource PanelBackground1}" CornerRadius="6" Padding="14">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Search directories (optional)" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimary}" />
+                    <TextBlock TextWrapping="Wrap" FontSize="11"
+                               Foreground="{DynamicResource TextSecondary}"
+                               Text="Audio files referenced by the export are first looked up at their original paths. If a file isn't found there, the importer recursively searches these directories — matching by filename, then by longest matching path suffix when multiple files share the same name. Useful when the original library was exported on another machine or the music folder has moved." />
+
+                    <Border Background="{DynamicResource PanelBackground2}" CornerRadius="4"
+                            Padding="4" MinHeight="80" MaxHeight="180">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding SearchPaths}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="*, Auto" Margin="6,2">
+                                            <TextBlock Grid.Column="0" Text="{Binding}"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="Cascadia Mono, Consolas, monospace"
+                                                       FontSize="11" />
+                                            <Button Grid.Column="1" Content="✕" Padding="6,2"
+                                                    Background="Transparent"
+                                                    Command="{Binding $parent[ItemsControl].((vm:ImportOptionsViewModel)DataContext).RemoveSearchPathCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+
+                    <Button Content="+ Add directory…" HorizontalAlignment="Left"
+                            Command="{Binding AddSearchPathCommand}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+            <Button Content="Cancel" Command="{Binding CancelCommand}" IsCancel="True" />
+            <Button Content="Import" Classes="primary" Command="{Binding ConfirmCommand}" IsDefault="True" />
+        </StackPanel>
+    </Grid>
+</UserControl>

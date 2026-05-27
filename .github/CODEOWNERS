@@ -1,0 +1,8 @@
+# Code owners for game-master-soundboard.
+#
+# Every PR automatically requests review from the listed owner(s) for the
+# matching paths. Solo maintainer setup — everything routes to me.
+#
+# Syntax reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+*       @DevinSanders

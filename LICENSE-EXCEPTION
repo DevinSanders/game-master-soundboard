@@ -1,0 +1,61 @@
+TTRPG Soundboard Plugin and Theme Exception
+
+As a special exception to the terms and conditions of version 3.0 of the
+GNU General Public License (GPLv3), the copyright holders of this software
+grant permission to develop, link, integrate, and distribute under terms of
+your own choosing any component (a "Plugin") whose only interaction with
+this software is to extend it by implementing one or more of the following
+extension interfaces:
+
+    SoundBoard.PluginApi.IAudioCodecPlugin
+    SoundBoard.PluginApi.IAudioSamplerPlugin
+    SoundBoard.PluginApi.IThemePlugin
+    SoundBoard.PluginApi.IUIExtensionPlugin
+    SoundBoard.PluginApi.IAudioBridgePlugin
+
+These interfaces are distributed as the SoundBoard.PluginApi assembly, a
+small SDK shipped as a separate NuGet package so that Plugin authors do
+not need to take a dependency on (or distribute) any other part of this
+software.
+
+The SoundBoard.PluginApi project is itself licensed under the MIT License
+(see SoundBoard.PluginApi/LICENSE), NOT the GPLv3 that governs the rest of
+this repository. A Plugin may therefore reference, redistribute, and link
+against the SDK assembly freely under those MIT terms, independent of this
+exception -- the exception below exists to clarify the boundary for the
+host application, but the SDK's own MIT terms already permit unrestricted
+use. The GPLv3 continues to govern every other project in this repository
+(SoundBoard.Core, SoundBoard.UI, SoundBoard.Desktop, and the rest).
+
+A Plugin covered by this exception may also reference the public types in
+the SoundBoard.PluginApi assembly that exist to support those interface
+contracts -- including but not limited to the base IPlugin interface
+required of every plugin, IPluginContext, IWindowService, UIPlacement,
+(for bridge plugins) IBridgeHost, IInboundAudioSink, BridgeStatus,
+IAudioFrameEncoder, IAudioFrameDecoder, the IAudioCodecRegistry exposed
+via IPluginContext for codec dispatch and codec-borrowing, plus
+ISidechainRegistry / ISidechainSource exposed via IPluginContext.Sidechain
+for sidechain detection sources (e.g. a ducker subscribing to one audio
+bus while attached to a different bus) -- to the extent necessary for
+the Plugin to implement and operate against the listed extension
+interfaces.
+
+This exception does NOT apply to any code that:
+
+  (a) modifies, replaces, or extends this software's source code itself
+      (such code remains fully subject to the GPLv3);
+
+  (b) reaches into this software through reflection, runtime patching, or
+      any other mechanism that bypasses the interfaces enumerated above; or
+
+  (c) uses, links, or relies upon types, services, or implementations from
+      this software that are not part of the Plugin API enumerated above.
+
+A Plugin distributed under this exception need not be licensed under the
+GPLv3. The five extension interfaces listed above are the SOLE exception
+path -- no other form of interaction with this software grants any GPLv3
+exemption.
+
+If you modify this software, you may extend this exception to your
+modified version, but you are not obligated to do so. If you do not wish
+to extend it, delete this exception statement from your version.

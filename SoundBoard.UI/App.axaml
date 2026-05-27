@@ -1,0 +1,230 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             xmlns:views="using:SoundBoard.UI.Views"
+             xmlns:controls="using:SoundBoard.UI.Controls"
+             x:Class="SoundBoard.UI.App"
+             RequestedThemeVariant="Dark">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.DataTemplates>
+        <DataTemplate DataType="{x:Type vm:LibraryViewModel}">
+            <views:LibraryView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:TrackEditorViewModel}">
+            <views:TrackEditorView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PlaylistsViewModel}">
+            <views:PlaylistsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ShortcutsViewModel}">
+            <views:ShortcutsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MixerViewModel}">
+            <views:MixerView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <views:SettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AboutViewModel}">
+            <views:AboutView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PresetsViewModel}">
+            <views:PresetsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PresetEditorViewModel}">
+            <views:PresetEditorView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:UriBuilderViewModel}">
+            <views:UriBuilderView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:IconPickerViewModel}">
+            <views:IconPickerView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ImportOptionsViewModel}">
+            <views:ImportOptionsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PoppedShortcutPageViewModel}">
+            <views:PoppedShortcutPageView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SamplerEditorViewModel}">
+            <views:SamplerEditorView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:BusMixerViewModel}">
+            <views:BusMixerView />
+        </DataTemplate>
+    </Application.DataTemplates>
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+        <!-- Custom Styles and Colors -->
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{DynamicResource ContentBackground}" />
+        </Style>
+
+        <!-- Hide the default title text in Avalonia's drawn decorations;
+             every window with ExtendClientAreaToDecorationsHint draws its
+             own custom title bar instead. -->
+        <Style Selector="WindowDrawnDecorations /template/ Panel#PART_TitleTextPanel > TextBlock">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="{DynamicResource PrimaryAccent}" />
+            <Setter Property="Foreground" Value="{DynamicResource OnPrimaryAccent}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="16,10" />
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource PrimaryAccentHover}" />
+        </Style>
+
+        <!-- RangeSlider Template -->
+        <Style Selector="controls|RangeSlider">
+            <Setter Property="Background" Value="{DynamicResource PanelBackground3}" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Height="30" Background="Transparent" ColumnDefinitions="*">
+                        <!-- Track Background -->
+                        <Rectangle Fill="{TemplateBinding Background}" 
+                                   Height="4" VerticalAlignment="Center" 
+                                   RadiusX="2" RadiusY="2" Margin="0,13,0,0" />
+                        
+                        <Canvas Name="PART_Canvas" Background="Transparent" ClipToBounds="False" Margin="0">
+                            <!-- Highlighted Range -->
+                            <Rectangle Name="PART_RangeHighlight" 
+                                       Fill="{DynamicResource PrimaryAccent}" 
+                                       Height="4" Canvas.Top="13" 
+                                       RadiusX="2" RadiusY="2" />
+                            
+                            <Thumb Name="PART_StartThumb" Width="14" Height="20" Canvas.Top="5">
+                                <Thumb.Template>
+                                    <ControlTemplate>
+                                        <Border Background="{DynamicResource PrimaryAccent}" CornerRadius="4" BorderBrush="White" BorderThickness="1" />
+                                    </ControlTemplate>
+                                </Thumb.Template>
+                            </Thumb>
+                            
+                            <Thumb Name="PART_EndThumb" Width="14" Height="20" Canvas.Top="5">
+                                <Thumb.Template>
+                                    <ControlTemplate>
+                                        <Border Background="{DynamicResource SecondaryAccent}" CornerRadius="4" BorderBrush="White" BorderThickness="1" />
+                                    </ControlTemplate>
+                                </Thumb.Template>
+                            </Thumb>
+                        </Canvas>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- RPG Awesome icon font.
+                 The "#rpg-awesome" fragment is the family name stored inside
+                 the TTF (NOT the file name). Confirmed via the font's
+                 name-table records nid 1/4/6. -->
+            <FontFamily x:Key="RPGAwesome">avares://SoundBoard.UI/Assets/rpg-awesome.ttf#rpg-awesome</FontFamily>
+
+            <!-- Title-bar content left/right inset. On macOS the OS draws the
+                 traffic-light buttons (close/min/max) on top of the left side
+                 of the client area, so the custom title bar must indent ~78 px
+                 from the left to clear them. On Windows/Linux the OS chrome
+                 is on the right (or absent — our ExtendClientArea hint pulls
+                 it into our area) and 15 px on either side is plenty.
+                 App.axaml.cs overrides this resource at startup when running
+                 on macOS — keep both spots in sync if you tweak the values. -->
+            <Thickness x:Key="TitleBarContentMargin">15,0</Thickness>
+
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <!-- Surfaces -->
+                    <SolidColorBrush x:Key="SidebarBackground"     Color="#0F172A" />
+                    <SolidColorBrush x:Key="ContentBackground"     Color="#1E293B" />
+                    <SolidColorBrush x:Key="PanelBackground1"      Color="#0F172A" />
+                    <SolidColorBrush x:Key="PanelBackground2"      Color="#1E293B" />
+                    <SolidColorBrush x:Key="PanelBackground3"      Color="#334155" />
+                    <SolidColorBrush x:Key="SubtleBorder"          Color="#333333" />
+
+                    <!-- Accents -->
+                    <SolidColorBrush x:Key="PrimaryAccent"         Color="#2563EB" />
+                    <SolidColorBrush x:Key="PrimaryAccentHover"    Color="#3B82F6" />
+                    <SolidColorBrush x:Key="SecondaryAccent"       Color="#FF5555" />
+
+                    <!-- Text -->
+                    <SolidColorBrush x:Key="TextPrimary"           Color="#F8FAFC" />
+                    <SolidColorBrush x:Key="TextSecondary"         Color="#CBD5E1" />
+
+                    <!-- Semantic action / status pairs.
+                         Themes override these in addition to the surface +
+                         accent keys above so Play / Stop / Edit / Restart-
+                         Required buttons and badges match the palette. -->
+                    <SolidColorBrush x:Key="SuccessBackground"     Color="#113311" />
+                    <SolidColorBrush x:Key="SuccessForeground"     Color="#55FF55" />
+                    <SolidColorBrush x:Key="DangerBackground"      Color="#440000" />
+                    <SolidColorBrush x:Key="DangerForeground"      Color="#FF5555" />
+                    <SolidColorBrush x:Key="InfoBackground"        Color="#223355" />
+                    <SolidColorBrush x:Key="InfoForeground"        Color="#AACCFF" />
+                    <SolidColorBrush x:Key="WarningBackground"     Color="#44FF4444" />
+                    <SolidColorBrush x:Key="WarningForeground"     Color="#FFFF4444" />
+
+                    <!-- Tier 2 keys (Phase 3A). "OnPrimaryAccent" is the
+                         text color for content sitting on top of
+                         PrimaryAccent (e.g. shortcut button labels, the
+                         primary-button class). "DropZoneHighlight" is the
+                         border brush a drop target shows when a valid
+                         payload is over it. "WaveformBrush" is the body
+                         color of the StaticWaveformDisplay. The
+                         LoopOverride* trio drives the per-track loop
+                         override glyph in the playlist editor. -->
+                    <SolidColorBrush x:Key="OnPrimaryAccent"        Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="DropZoneHighlight"      Color="#B42563EB" />
+                    <SolidColorBrush x:Key="WaveformBrush"          Color="#2563EB" />
+                    <SolidColorBrush x:Key="LoopInheritForeground"  Color="#CBD5E1" />
+                    <SolidColorBrush x:Key="LoopForceOnForeground"  Color="#55FF55" />
+                    <SolidColorBrush x:Key="LoopForceOffForeground" Color="#FF5555" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <!-- Surfaces -->
+                    <SolidColorBrush x:Key="SidebarBackground"     Color="#F1F5F9" />
+                    <SolidColorBrush x:Key="ContentBackground"     Color="#F8FAFC" />
+                    <SolidColorBrush x:Key="PanelBackground1"      Color="#E2E8F0" />
+                    <SolidColorBrush x:Key="PanelBackground2"      Color="#F1F5F9" />
+                    <SolidColorBrush x:Key="PanelBackground3"      Color="#CBD5E1" />
+                    <SolidColorBrush x:Key="SubtleBorder"          Color="#CCCCCC" />
+
+                    <!-- Accents -->
+                    <SolidColorBrush x:Key="PrimaryAccent"         Color="#1E40AF" />
+                    <SolidColorBrush x:Key="PrimaryAccentHover"    Color="#2563EB" />
+                    <SolidColorBrush x:Key="SecondaryAccent"       Color="#C04040" />
+
+                    <!-- Text -->
+                    <SolidColorBrush x:Key="TextPrimary"           Color="#0F172A" />
+                    <SolidColorBrush x:Key="TextSecondary"         Color="#475569" />
+
+                    <!-- Semantic action / status pairs -->
+                    <SolidColorBrush x:Key="SuccessBackground"     Color="#D4F4D4" />
+                    <SolidColorBrush x:Key="SuccessForeground"     Color="#1A6E1A" />
+                    <SolidColorBrush x:Key="DangerBackground"      Color="#F4D4D4" />
+                    <SolidColorBrush x:Key="DangerForeground"      Color="#A02020" />
+                    <SolidColorBrush x:Key="InfoBackground"        Color="#D4DAF4" />
+                    <SolidColorBrush x:Key="InfoForeground"        Color="#1A3A8C" />
+                    <SolidColorBrush x:Key="WarningBackground"     Color="#F4E0D4" />
+                    <SolidColorBrush x:Key="WarningForeground"     Color="#8C5A1A" />
+
+                    <!-- Tier 2 keys (Phase 3A). Light variants. -->
+                    <SolidColorBrush x:Key="OnPrimaryAccent"        Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="DropZoneHighlight"      Color="#B41E40AF" />
+                    <SolidColorBrush x:Key="WaveformBrush"          Color="#1E40AF" />
+                    <SolidColorBrush x:Key="LoopInheritForeground"  Color="#475569" />
+                    <SolidColorBrush x:Key="LoopForceOnForeground"  Color="#1A6E1A" />
+                    <SolidColorBrush x:Key="LoopForceOffForeground" Color="#A02020" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

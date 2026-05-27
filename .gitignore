@@ -1,0 +1,132 @@
+# ============================================================
+# .NET / Visual Studio
+# Based on github/gitignore/VisualStudio.gitignore, trimmed.
+# ============================================================
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+artifacts/
+publish/
+
+# Local output of scripts/package-sample-plugins.ps1 — the workflow
+# produces these in CI; they're never committed.
+dist/
+
+# .NET CLI
+*.binlog
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Visual Studio user-specific files
+.vs/
+*.user
+*.suo
+*.userprefs
+*.userosscache
+*.sln.docstates
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+
+# Rider / ReSharper / JetBrains
+.idea/
+*.DotSettings.user
+_ReSharper*/
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!**/packages/build/
+*.nuget.props
+*.nuget.targets
+
+# Build results
+[Ee]xpected[Ss]urvey[Rr]esults*
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+coverage*.json
+coverage*.xml
+coverage*.info
+
+# Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+
+# Avalonia / XAML
+*.g.cs
+*.g.i.cs
+*.baml
+
+# Publish output
+*.[Pp]ublish.xml
+*.azurePubxml
+*.pubxml
+*.pubxml.user
+PublishScripts/
+
+# Misc
+*.swp
+*.swo
+*.bak
+*.tmp
+*.log
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Project-specific
+# ============================================================
+
+# Dev scratch — not part of the solution
+scratch/
+
+# Editor / tooling local state
+.claude/
+
+# Local user data and dev artifacts at repo root
+settings.json
+test.json
+
+# RPG Awesome icon-map generation scratch (source for the RpgAwesomeIcons code map)
+ra.css
+ra_dict.txt
+ra_map.json
+
+# Local AI-assistant guidance (not published)
+CLAUDE.md

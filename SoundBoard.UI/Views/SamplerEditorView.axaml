@@ -1,0 +1,163 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             x:Class="SoundBoard.UI.Views.SamplerEditorView"
+             x:DataType="vm:SamplerEditorViewModel">
+
+    <Grid ColumnDefinitions="240, *" Margin="14">
+
+        <!-- ═══ AVAILABLE EFFECTS (drag source) ═══ -->
+        <Border Grid.Column="0"
+                Background="{DynamicResource PanelBackground2}"
+                CornerRadius="8" Padding="12" Margin="0,0,12,0">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Available Effects"
+                           FontWeight="Bold" FontSize="13"
+                           Foreground="{DynamicResource TextPrimary}"
+                           Margin="0,0,0,4" />
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Drag an effect onto the chain to add it."
+                           FontSize="11" Opacity="0.7"
+                           Foreground="{DynamicResource TextSecondary}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8" />
+
+                <!-- Empty-state for an attachment point with no compatible plugins. -->
+                <TextBlock DockPanel.Dock="Top"
+                           IsVisible="{Binding !AvailablePlugins.Count}"
+                           Text="No effect plugins installed that support this attachment point. Install one under Plugins in Settings."
+                           FontSize="11" FontStyle="Italic"
+                           Opacity="0.6"
+                           Foreground="{DynamicResource TextSecondary}"
+                           TextWrapping="Wrap" />
+
+                <ListBox x:Name="AvailableList"
+                         ItemsSource="{Binding AvailablePlugins}"
+                         Background="Transparent" BorderThickness="0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{DynamicResource PanelBackground3}"
+                                    CornerRadius="6" Padding="10,8" Margin="0,3"
+                                    ToolTip.Tip="Drag onto the chain to add">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontWeight="SemiBold" FontSize="12"
+                                               Foreground="{DynamicResource TextPrimary}" />
+                                    <TextBlock Text="{Binding Description}"
+                                               FontSize="10" Opacity="0.7"
+                                               Foreground="{DynamicResource TextSecondary}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- ═══ CHAIN PANE (drop target + attached cards) ═══ -->
+        <Grid Grid.Column="1" RowDefinitions="Auto, Auto, *" RowSpacing="10">
+
+            <TextBlock Grid.Row="0"
+                       FontSize="22" FontWeight="Bold"
+                       Foreground="{DynamicResource TextPrimary}">
+                <Run Text="FX Chain — " />
+                <Run Text="{Binding OwnerDisplayName}" />
+            </TextBlock>
+
+            <TextBlock Grid.Row="1"
+                       FontSize="12" Opacity="0.7"
+                       Foreground="{DynamicResource TextSecondary}"
+                       TextWrapping="Wrap"
+                       Text="Effects are applied in order, top to bottom. Master effects run on the final mix; per-target effects run only when that target plays. Master edits apply live; per-target edits apply live to anything already playing, and on the next playback for new starts." />
+
+            <Border Grid.Row="2"
+                    x:Name="ChainDropZone"
+                    Background="{DynamicResource PanelBackground1}"
+                    BorderBrush="Transparent" BorderThickness="2"
+                    CornerRadius="8" Padding="10"
+                    DragDrop.AllowDrop="True">
+                <ScrollViewer>
+                    <StackPanel>
+                        <!-- Empty state: visible only when no effects attached. -->
+                        <Border IsVisible="{Binding !HasAttached}"
+                                Padding="20" Opacity="0.7">
+                            <StackPanel Spacing="6" HorizontalAlignment="Center">
+                                <TextBlock Text="🎛"
+                                           FontSize="40"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondary}" />
+                                <TextBlock Text="{Binding EmptyStateMessage}"
+                                           HorizontalAlignment="Center"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextSecondary}" />
+                            </StackPanel>
+                        </Border>
+
+                        <ItemsControl x:Name="ChainItems" ItemsSource="{Binding Attached}"
+                                      IsVisible="{Binding HasAttached}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:AttachedSamplerViewModel">
+                                    <Border Background="{DynamicResource PanelBackground2}"
+                                            CornerRadius="8" Padding="15" Margin="0,0,0,10">
+                                        <StackPanel Spacing="10">
+                                            <!-- Card header -->
+                                            <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto, Auto" VerticalAlignment="Center">
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding Order, StringFormat='#{0}'}"
+                                                           FontFamily="Consolas,Menlo,monospace"
+                                                           FontSize="11" Opacity="0.5"
+                                                           Foreground="{DynamicResource TextSecondary}"
+                                                           VerticalAlignment="Center" Margin="0,0,10,0" />
+
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding PluginName}" FontWeight="Bold"
+                                                               Foreground="{DynamicResource TextPrimary}" />
+                                                    <TextBlock Text="{Binding TierLabel}"
+                                                               FontSize="10" Opacity="0.6"
+                                                               Foreground="{DynamicResource TextSecondary}" />
+                                                </StackPanel>
+
+                                                <ToggleSwitch Grid.Column="2"
+                                                              IsChecked="{Binding IsBypassed}"
+                                                              OnContent="Bypassed" OffContent="Active"
+                                                              Margin="0,0,8,0"
+                                                              ToolTip.Tip="Skip this effect without removing it (A/B testing)" />
+
+                                                <Button Grid.Column="3" Content="▲" Padding="8,4" FontSize="11"
+                                                        Command="{Binding $parent[ItemsControl].((vm:SamplerEditorViewModel)DataContext).MoveUpCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip.Tip="Move earlier in chain" />
+                                                <Button Grid.Column="4" Content="▼" Padding="8,4" FontSize="11" Margin="4,0"
+                                                        Command="{Binding $parent[ItemsControl].((vm:SamplerEditorViewModel)DataContext).MoveDownCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip.Tip="Move later in chain" />
+                                                <Button Grid.Column="5" Content="🗑"
+                                                        Background="{DynamicResource DangerBackground}"
+                                                        Foreground="{DynamicResource DangerForeground}"
+                                                        Padding="8,4" FontSize="11"
+                                                        Command="{Binding $parent[ItemsControl].((vm:SamplerEditorViewModel)DataContext).RemoveFxChainItemCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip.Tip="Remove this effect from the chain" />
+                                            </Grid>
+
+                                            <!-- Card body — plugin-supplied control, or empty-state hint. -->
+                                            <ContentControl Content="{Binding Control}"
+                                                            IsVisible="{Binding HasControl}" />
+                                            <TextBlock Text="(No controls — this effect has no adjustable parameters. Use the Bypassed toggle above to disable it without removing.)"
+                                                       IsVisible="{Binding !HasControl}"
+                                                       FontSize="11" Opacity="0.6" FontStyle="Italic"
+                                                       Foreground="{DynamicResource TextSecondary}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+        </Grid>
+    </Grid>
+</UserControl>

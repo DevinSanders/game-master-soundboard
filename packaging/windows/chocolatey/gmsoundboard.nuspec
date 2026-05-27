@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Chocolatey package metadata for Game Master Sound Board.
+
+  This package downloads the Inno Setup installer from a tagged GitHub Release
+  and runs it silently. The CI workflow rewrites these placeholders before
+  packing:
+    - $VERSION$ in THIS nuspec (the <releaseNotes> URL — `choco pack --version`
+      only overrides the <version> element, not arbitrary $VERSION$ tokens
+      elsewhere in the file)
+    - $DOWNLOAD_URL$, $CHECKSUM$ in tools/chocolateyinstall.ps1
+
+  Building locally:
+    choco pack gmsoundboard.nuspec --version 1.2.3
+    choco install gmsoundboard --source . -y    (smoke test)
+
+  Publishing:
+    Pushing to the community feed (https://community.chocolatey.org/) requires
+    a CHOCO_API_KEY and goes through human moderation review. The release
+    workflow builds the .nupkg but DOES NOT push automatically — that's a
+    deliberate manual step.
+-->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>gmsoundboard</id>
+    <version>$VERSION$</version>
+    <title>Game Master Sound Board</title>
+    <authors>Game Master Sound Board Project</authors>
+    <projectUrl>https://github.com/DevinSanders/game-master-soundboard</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/DevinSanders/game-master-soundboard/main/SoundBoard.UI/Assets/app-icon.ico</iconUrl>
+    <licenseUrl>https://github.com/DevinSanders/game-master-soundboard/blob/main/LICENSE</licenseUrl>
+    <packageSourceUrl>https://github.com/DevinSanders/game-master-soundboard/tree/main/packaging/windows/chocolatey</packageSourceUrl>
+    <projectSourceUrl>https://github.com/DevinSanders/game-master-soundboard</projectSourceUrl>
+    <bugTrackerUrl>https://github.com/DevinSanders/game-master-soundboard/issues</bugTrackerUrl>
+    <docsUrl>https://github.com/DevinSanders/game-master-soundboard/blob/main/README.md</docsUrl>
+    <tags>soundboard ttrpg rpg audio dnd gm dm tabletop avalonia cross-platform</tags>
+    <summary>Cross-platform soundboard for tabletop RPG sessions.</summary>
+    <description>
+A soundboard built for game masters running tabletop RPG sessions: cue ambient loops, fire one-shot stings, switch between multi-track scenes, and optionally pipe the mix to a Discord voice channel.
+
+**Features**
+- Tagged library of tracks with per-track volume, fades, loop points, and waveform preview
+- Presets — single cards that play several tracks together with independent overrides
+- Playlists with sequential auto-advance
+- Paginated soundboard shortcuts grid
+- Pluggable voice bridges (Discord, future Zoom/Mumble) via separate plugin installs
+- gmsound:// URI scheme for launching tracks/presets/playlists from markdown
+- Plugin system for codecs, DSP effects, themes, and UI extensions
+
+This package installs the Windows x64 build via the official Inno Setup installer and registers the `gmsound://` URL protocol.
+    </description>
+    <releaseNotes>https://github.com/DevinSanders/game-master-soundboard/releases/tag/v$VERSION$</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

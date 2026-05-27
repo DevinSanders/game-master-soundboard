@@ -1,0 +1,303 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             x:Class="SoundBoard.UI.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+    <!-- DockPanel keeps the restart banner pinned to the top of the
+         settings window so the Restart Now button stays accessible
+         regardless of how far the user has scrolled. The banner itself
+         is collapsed (IsVisible=false → consumes no space) until a
+         restart-required setting flips, so the layout doesn't shift
+         when there's nothing to act on. -->
+    <DockPanel LastChildFill="True">
+
+        <!-- ═══ STICKY RESTART-REQUIRED BANNER ═══
+             Theme palettes apply live now, but installing a non-theme
+             plugin or toggling one on/off still requires a relaunch
+             (PluginService loads DLLs into ALCs once at startup, the
+             codec registry wires up there too). The banner gives the
+             user a one-click restart without hunting through the
+             Plugin section.
+
+             Styled edge-to-edge — a sticky element with rounded corners
+             looks like a floating card that lost its drop shadow; flush
+             warning-coloured fill + a 1 px bottom border reads as a
+             window-chrome strip. Inner content is constrained to the
+             same 700 px column the scrolled body uses so the button
+             aligns with the settings cards below. -->
+        <Border DockPanel.Dock="Top"
+                IsVisible="{Binding RestartRequired}"
+                Background="{DynamicResource WarningBackground}"
+                BorderBrush="{DynamicResource SubtleBorder}"
+                BorderThickness="0,0,0,1"
+                Padding="25,12">
+            <Grid ColumnDefinitions="*, Auto" MaxWidth="700"
+                  HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="⚠ Restart required" FontWeight="Bold" FontSize="14"
+                               Foreground="{DynamicResource WarningForeground}" />
+                    <TextBlock Text="Plugin changes apply on the next launch."
+                               FontSize="12" Opacity="0.85"
+                               Foreground="{DynamicResource WarningForeground}" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Restart Now" Classes="primary"
+                        Command="{Binding RestartNowCommand}"
+                        VerticalAlignment="Center" Padding="16,8" />
+            </Grid>
+        </Border>
+
+    <ScrollViewer>
+        <StackPanel Spacing="25" MaxWidth="700">
+            <TextBlock Text="Settings" FontSize="28" FontWeight="Black" Foreground="{DynamicResource TextPrimary}" />
+
+            <!-- ═══ APPEARANCE ═══ -->
+            <Border Background="{DynamicResource PanelBackground2}" CornerRadius="10" Padding="25">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="🎨 Appearance" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                    <Border Height="1" Background="{DynamicResource TextSecondary}" Opacity="0.15" />
+
+                    <Grid ColumnDefinitions="*, Auto" Margin="0,5">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Theme" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" />
+                            <TextBlock Text="Game Master Light / Dark, plus any theme plugins you've installed. Each theme is a single look — pick one and the whole app re-colours instantly."
+                                       FontSize="12" Foreground="{DynamicResource TextSecondary}" Opacity="0.7" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding AvailableThemes}"
+                                  SelectedItem="{Binding SelectedTheme}"
+                                  Width="250" VerticalAlignment="Center">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ LIBRARY MANAGER ═══ -->
+            <Border Background="{DynamicResource PanelBackground2}" CornerRadius="10" Padding="25">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="📚 Library Management" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                    <Border Height="1" Background="{DynamicResource TextSecondary}" Opacity="0.15" />
+
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="Current Library Path:" FontSize="12" Foreground="{DynamicResource TextSecondary}" Opacity="0.7" />
+                        <TextBlock Text="{Binding CurrentLibraryPath}" FontSize="11" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="Create New Library" Click="OnCreateLibraryClicked" />
+                        <Button Content="Open Existing Library" Classes="primary" Click="OnOpenLibraryClicked" />
+                    </StackPanel>
+                    
+                    <TextBlock Text="Note: Switching libraries will require an application restart."
+                               FontSize="11" Foreground="{DynamicResource TextSecondary}" Opacity="0.6" FontStyle="Italic" />
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ DATA TRANSFER ═══ -->
+            <Border Background="{DynamicResource PanelBackground2}" CornerRadius="10" Padding="25">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="💾 Import &amp; Export" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                    <Border Height="1" Background="{DynamicResource TextSecondary}" Opacity="0.15" />
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Library" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" />
+                        <TextBlock Text="Tracks, presets (with overrides), playlists, and soundboard pages — everything except the audio files themselves."
+                                   FontSize="11" Foreground="{DynamicResource TextSecondary}" Opacity="0.7" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+                            <Button Content="📤 Export library…" Command="{Binding ExportLibraryCommand}" />
+                            <Button Content="📥 Import library…" Click="OnImportLibraryClicked" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Height="1" Background="{DynamicResource TextSecondary}" Opacity="0.1" Margin="0,4" />
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Settings" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" />
+                        <TextBlock Text="Theme, Discord credentials, enabled plugins, and preferred audio device. The library path is excluded — that's per-machine."
+                                   FontSize="11" Foreground="{DynamicResource TextSecondary}" Opacity="0.7" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+                            <Button Content="📤 Export settings…" Command="{Binding ExportSettingsCommand}" />
+                            <Button Content="📥 Import settings…" Command="{Binding ImportSettingsCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding DataStatus}" FontSize="11"
+                               Foreground="{DynamicResource PrimaryAccent}"
+                               IsVisible="{Binding DataStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ AUDIO OUTPUT ═══ -->
+            <Border Background="{DynamicResource PanelBackground2}" CornerRadius="10" Padding="25">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="🔊 Audio Output" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                    <Border Height="1" Background="{DynamicResource TextSecondary}" Opacity="0.15" />
+
+                    <Grid ColumnDefinitions="*, Auto" Margin="0,5">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Output Device" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" />
+                            <TextBlock Text="Select the primary audio device for local playback" FontSize="12" Foreground="{DynamicResource TextSecondary}" Opacity="0.7" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding AudioDevices}" SelectedItem="{Binding SelectedAudioDevice}" Width="250" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ BUSES ═══
+                 Renaming a built-in bus is fine (the Id is what's pinned,
+                 not the name). Built-ins can't be deleted — the chain
+                 service hard-codes Music = 1 as the default for new
+                 tracks; nuking it would orphan every track on the bus.
+                 Deleting a custom bus reassigns its tracks to Music and
+                 nulls any preset / shortcut override pointing at it. -->
+            <Border Background="{DynamicResource PanelBackground2}" CornerRadius="10" Padding="25">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="🎚 Buses" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                    <Border Height="1" Background="{DynamicResource TextSecondary}" Opacity="0.15" />
+                    <TextBlock Text="Audio buses route tracks to independent mixes — needed for sidechain plugins like the ducker. Rename freely; built-in buses (Music / Ambient / SFX) can't be deleted."
+                               FontSize="11" Foreground="{DynamicResource TextSecondary}" Opacity="0.75" TextWrapping="Wrap" />
+
+                    <ItemsControl ItemsSource="{Binding Buses}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:SettingsViewModel+BusRow">
+                                <Grid ColumnDefinitions="*, Auto, Auto" Margin="0,4">
+                                    <TextBox Grid.Column="0" Text="{Binding Name, Mode=TwoWay}" />
+                                    <TextBlock Grid.Column="1" Text="(built-in)" VerticalAlignment="Center"
+                                               Margin="10,0" FontSize="11" FontStyle="Italic"
+                                               Foreground="{DynamicResource TextSecondary}" Opacity="0.6"
+                                               IsVisible="{Binding IsBuiltIn}" />
+                                    <Button Grid.Column="2" Content="🗑"
+                                            Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).DeleteBusCommand}"
+                                            CommandParameter="{Binding}"
+                                            IsVisible="{Binding CanDelete}"
+                                            Background="{DynamicResource DangerBackground}"
+                                            Foreground="{DynamicResource DangerForeground}"
+                                            ToolTip.Tip="Delete this custom bus. Any tracks pointing at it are reassigned to Music." />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Border Height="1" Background="{DynamicResource TextSecondary}" Opacity="0.1" Margin="0,4" />
+
+                    <Grid ColumnDefinitions="*, Auto">
+                        <TextBox Grid.Column="0" Text="{Binding NewBusName, Mode=TwoWay}"
+                                 PlaceholderText="New bus name (e.g. Voiceover)" />
+                        <Button Grid.Column="1" Content="+ Add bus"
+                                Command="{Binding AddBusCommand}" Margin="10,0,0,0" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ PLUGINS ═══ -->
+            <Border Background="{DynamicResource PanelBackground2}" CornerRadius="10" Padding="25">
+                <StackPanel Spacing="15">
+                    <Grid ColumnDefinitions="*, Auto">
+                        <TextBlock Text="🧩 Plugin Manager" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                        <Border Grid.Column="1" IsVisible="{Binding RestartRequired}" Background="{DynamicResource WarningBackground}" CornerRadius="4" Padding="8,4">
+                            <TextBlock Text="Restart Required" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource WarningForeground}" />
+                        </Border>
+                    </Grid>
+                    <Border Height="1" Background="{DynamicResource TextSecondary}" Opacity="0.15" />
+
+                    <DataGrid ItemsSource="{Binding Plugins}" AutoGenerateColumns="False"
+                              Background="Transparent" BorderThickness="0" CanUserResizeColumns="True"
+                              RowBackground="Transparent" GridLinesVisibility="None" IsReadOnly="False">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Enabled" Width="80">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ToggleSwitch IsChecked="{Binding IsEnabledInSettings}" HorizontalAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" FontWeight="Bold" Width="*" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="80" IsReadOnly="True" />
+                            <DataGridTemplateColumn Header="Status" Width="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="Loaded" Foreground="{DynamicResource SuccessForeground}" IsVisible="{Binding IsLoaded}" FontSize="12" />
+                                            <TextBlock Text="Failed" Foreground="{DynamicResource DangerForeground}" IsVisible="{Binding LoadFailed}" FontSize="12" ToolTip.Tip="{Binding ErrorMessage}" />
+                                            <TextBlock Text="Inactive" Opacity="0.5" IsVisible="{Binding !IsLoaded}" FontSize="12" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- ── Drag-to-install drop zone ───────────────────────────
+                         User drags one or more .zip files here. Each is
+                         extracted, inspected, and moved to Plugins/ or
+                         Themes/ based on whether the entry-point DLL
+                         implements IThemePlugin. Plugins only activate on
+                         next launch — RestartRequired flips after a
+                         successful install. -->
+                    <Border x:Name="PluginInstallDropZone"
+                            BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="2"
+                            CornerRadius="8" Padding="20"
+                            DragDrop.AllowDrop="True"
+                            Background="Transparent">
+                        <StackPanel Spacing="6" HorizontalAlignment="Center">
+                            <TextBlock Text="📦" FontSize="32" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource TextSecondary}" />
+                            <TextBlock Text="Drop plugin .zip files here to install"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimary}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="Multiple .zip files at once are supported. Themes auto-route to the Themes folder."
+                                       FontSize="11" Opacity="0.7"
+                                       Foreground="{DynamicResource TextSecondary}"
+                                       HorizontalAlignment="Center" TextWrapping="Wrap" />
+                            <Button Content="Browse..." Click="OnBrowsePluginZipsClicked"
+                                    HorizontalAlignment="Center" Margin="0,8,0,0"
+                                    IsEnabled="{Binding !IsInstallingPlugins}" />
+                            <TextBlock Text="{Binding PluginInstallStatus}"
+                                       IsVisible="{Binding PluginInstallStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       FontSize="11" FontFamily="Consolas,Menlo,monospace"
+                                       Foreground="{DynamicResource TextSecondary}"
+                                       HorizontalAlignment="Center" TextWrapping="Wrap"
+                                       Margin="0,10,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Note: Plugin DLLs (themes included) live in the Plugins folder under AppData. Themes are picked under Appearance; this list covers everything else. Anything that fails to load on startup is auto-disabled."
+                               FontSize="11" Foreground="{DynamicResource TextSecondary}" Opacity="0.6" FontStyle="Italic" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ BRIDGES (Discord / Zoom / Mumble / …) ═══
+                 Each loaded IAudioBridgePlugin renders its own
+                 settings UI here via CreateSettingsControl. The host
+                 just lays out a header + a per-bridge card container;
+                 the code-behind (SettingsView.axaml.cs) populates the
+                 cards on Loaded. -->
+            <Border Background="{DynamicResource PanelBackground2}" CornerRadius="10" Padding="25">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="🌉 Bridges" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" />
+                    <TextBlock Text="Stream the master mix into Discord, Zoom, Mumble, or any other voice / meeting platform you have a bridge plugin installed for. Bridges are optional — install one from the plugin catalog to enable a destination."
+                               FontSize="12" Foreground="{DynamicResource TextSecondary}" Opacity="0.7" TextWrapping="Wrap" />
+                    <Border Height="1" Background="{DynamicResource TextSecondary}" Opacity="0.15" />
+
+                    <StackPanel x:Name="BridgesPanel" Spacing="15" />
+
+                    <TextBlock x:Name="BridgesEmptyHint"
+                               Text="No bridge plugins installed. Drop a gmsb-bridge-* .zip onto the Plugin Manager above to add one."
+                               FontSize="12" FontStyle="Italic" Opacity="0.6"
+                               Foreground="{DynamicResource TextSecondary}"
+                               TextWrapping="Wrap"
+                               IsVisible="False" />
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+
+    </DockPanel>
+</UserControl>

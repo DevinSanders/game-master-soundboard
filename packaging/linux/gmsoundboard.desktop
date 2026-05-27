@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Game Master Sound Board
+GenericName=Soundboard
+Comment=Cross-platform soundboard for tabletop RPG sessions
+Exec=gmsoundboard %u
+Icon=gmsoundboard
+Terminal=false
+Categories=AudioVideo;Audio;Player;Game;
+StartupNotify=true
+StartupWMClass=SoundBoard.Desktop
+
+# Register the gmsound:// URI scheme. xdg-mime + update-desktop-database
+# in the post-install scripts make this actually take effect system-wide.
+MimeType=x-scheme-handler/gmsound;

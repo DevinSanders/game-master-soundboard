@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             xmlns:controls="using:SoundBoard.UI.Controls"
+             x:Class="SoundBoard.UI.Views.PoppedShortcutPageView"
+             x:DataType="vm:PoppedShortcutPageViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="ItemsControl > ContentPresenter > Button">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+            <Setter Property="RenderTransform" Value="scale(1)" />
+        </Style>
+        <Style Selector="ItemsControl > ContentPresenter > Button:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1.04)" />
+        </Style>
+
+        <!-- Fluent's Button template forces BorderBrush to a theme color on
+             :pointerover and :pressed, which would hide the playing/paused
+             outline. Re-bind to the Button's own BorderBrush. -->
+        <Style Selector="ItemsControl > ContentPresenter > Button:pointerover /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
+        </Style>
+        <Style Selector="ItemsControl > ContentPresenter > Button:pressed /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto, *" Margin="10">
+        <TextBlock Grid.Row="0" Text="{Binding PageName}"
+                   FontSize="20" FontWeight="Bold"
+                   Foreground="{DynamicResource TextPrimary}"
+                   Margin="6,0,0,10" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="ShortcutItems" ItemsSource="{Binding CurrentButtons}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" ItemWidth="120" ItemHeight="120" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Command="{Binding ClickCommand}"
+                                BorderBrush="{Binding OutlineBrush}"
+                                BorderThickness="3"
+                                CornerRadius="8"
+                                Margin="10"
+                                Background="{DynamicResource PanelBackground3}"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <Grid RowDefinitions="*, Auto">
+                                <controls:RpgIcon Grid.Row="0" IconName="{Binding EffectiveIcon}"
+                                                  FontSize="36"
+                                                  Foreground="{DynamicResource PrimaryAccent}"
+                                                  IsVisible="{Binding HasIcon}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="1" Text="{Binding Label}"
+                                           TextWrapping="Wrap" TextAlignment="Center"
+                                           FontWeight="Bold" Foreground="{DynamicResource OnPrimaryAccent}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5" />
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

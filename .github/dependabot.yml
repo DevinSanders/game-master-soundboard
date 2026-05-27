@@ -1,0 +1,35 @@
+version: 2
+updates:
+  # NuGet packages across all projects in the solution.
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      avalonia:
+        patterns:
+          - "Avalonia*"
+      naudio:
+        patterns:
+          - "NAudio*"
+      silk-openal:
+        patterns:
+          - "Silk.NET.OpenAL*"
+      efcore:
+        patterns:
+          - "Microsoft.EntityFrameworkCore*"
+      mvvm-toolkit:
+        patterns:
+          - "CommunityToolkit.Mvvm"
+      ms-extensions:
+        patterns:
+          - "Microsoft.Extensions.*"
+
+  # Pinned versions of GitHub Actions in the workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3

@@ -1,0 +1,623 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             xmlns:controls="using:SoundBoard.UI.Controls"
+             xmlns:c="using:SoundBoard.UI.Converters"
+             x:Class="SoundBoard.UI.Views.MixerView"
+             x:DataType="vm:MixerViewModel">
+
+    <!-- Outer split: cards on the left, master-output strip on the right. -->
+    <Grid ColumnDefinitions="*, Auto">
+    <Grid Grid.Column="0" RowDefinitions="Auto, *, Auto">
+        <TextBlock Grid.Row="0" Text="Mixer &amp; Output" FontSize="24" FontWeight="Bold" Margin="0,0,0,20" />
+
+        <!-- Mixer items: Tracks and Presets render with different cards -->
+        <ScrollViewer Grid.Row="1">
+            <ItemsControl ItemsSource="{Binding ActiveItems}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.DataTemplates>
+                    <!-- Track card. Hidden when the track is running as part of
+                         a playlist — the playlist's own card is the single
+                         point of control in that case. -->
+                    <DataTemplate DataType="vm:PlayingTrackViewModel">
+                        <Border BorderBrush="{DynamicResource PanelBackground3}" BorderThickness="1" CornerRadius="10"
+                                Margin="5" Padding="12" Background="{DynamicResource PanelBackground2}"
+                                Width="350" ToolTip.Tip="{Binding Name}"
+                                IsVisible="{Binding !IsPlaylistOwned}">
+                            <Grid ColumnDefinitions="*, Auto, 50" RowDefinitions="Auto, Auto, Auto, Auto">
+                                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                    <controls:RpgIcon IconName="{Binding Track.Icon}"
+                                                      FontSize="22"
+                                                      Foreground="{DynamicResource PrimaryAccent}"
+                                                      VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}"
+                                               FontWeight="Bold" FontSize="16"
+                                               Foreground="{DynamicResource TextPrimary}"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <controls:AudioVisualizer Grid.Row="0" Grid.Column="1"
+                                                          Width="80" Height="30"
+                                                          Source="{Binding}"
+                                                          BarBrush="{DynamicResource PrimaryAccent}" Margin="10,0,0,0" />
+
+                                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                            Orientation="Horizontal" Spacing="8" Margin="0,12,0,8">
+                                    <ToggleButton IsChecked="{Binding IsPaused}" Content="{Binding PlayPauseText}"
+                                                  MinWidth="80" HorizontalContentAlignment="Center" FontSize="12" Padding="8,6" />
+                                    <Button Content="■" FontSize="12" Padding="12,6"
+                                            Command="{Binding $parent[UserControl].((vm:MixerViewModel)DataContext).StopItemCommand}"
+                                            CommandParameter="{Binding}"
+                                            Background="{DynamicResource DangerBackground}" Foreground="{DynamicResource DangerForeground}" ToolTip.Tip="Stop" />
+                                    <ToggleButton IsChecked="{Binding IsLooping}" FontSize="12" Padding="12,6"
+                                                  IsEnabled="{Binding IsSeekable}"
+                                                  ToolTip.Tip="Toggle Loop (disabled for live streams)">
+                                        <TextBlock Text="🔁" />
+                                    </ToggleButton>
+                                    <Button Content="🎛" FontSize="12" Padding="12,6"
+                                            IsVisible="{Binding HasSamplerEditor}"
+                                            Command="{Binding OpenSamplerEditorCommand}"
+                                            ToolTip.Tip="Open the FX chain editor for this shortcut" />
+                                </StackPanel>
+
+                                <!-- Sampler badges: small chips showing what DSP is
+                                     active on this playback. Built once at spawn from the
+                                     owner's chain; doesn't update if the user edits the
+                                     editor mid-play (per-target instances are ephemeral
+                                     and re-read on next play). -->
+                                <ItemsControl Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                              ItemsSource="{Binding AttachedSamplers}"
+                                              IsVisible="{Binding HasAttachedSamplers}"
+                                              Margin="0,0,10,6">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="vm:SamplerBadge">
+                                            <Border Background="{DynamicResource InfoBackground}"
+                                                    CornerRadius="3" Padding="6,2" Margin="0,0,4,4"
+                                                    ToolTip.Tip="{Binding PluginId}">
+                                                <TextBlock Text="{Binding PluginName}"
+                                                           FontSize="10" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource InfoForeground}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" RowDefinitions="Auto, Auto" Margin="0,0,10,0">
+                                    <!-- Slider runs over the audible portion (EndPoint - StartPoint),
+                                         not the full file length, so clipped tracks show the right
+                                         scale. Value scrubs the provider relative to StartPoint. -->
+                                    <Slider Grid.Row="0"
+                                            Minimum="0"
+                                            Maximum="{Binding EffectiveDurationSeconds}"
+                                            Value="{Binding RelativePositionSeconds}"
+                                            IsVisible="{Binding IsSeekable}"
+                                            VerticalAlignment="Center" />
+                                    <!-- Live-stream stand-in: scrubbing isn't possible on
+                                         non-seekable sources, so we replace the slider with a
+                                         small "live" badge. -->
+                                    <Border Grid.Row="0"
+                                            IsVisible="{Binding !IsSeekable}"
+                                            Background="{DynamicResource DangerBackground}"
+                                            CornerRadius="3" Padding="6,2"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="● LIVE" FontSize="11" FontWeight="Bold"
+                                                   Foreground="{DynamicResource DangerForeground}" />
+                                    </Border>
+                                    <TextBlock Grid.Row="1" Text="{Binding TimeDisplay}"
+                                               FontSize="10" Foreground="{DynamicResource TextSecondary}"
+                                               HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <Grid Grid.Row="0" Grid.RowSpan="4" Grid.Column="2" RowDefinitions="*, Auto, Auto" Margin="10,0,0,0">
+                                    <Slider Grid.Row="0" Minimum="0" Maximum="2" Value="{Binding Volume}"
+                                            Orientation="Vertical" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Row="1" Text="{Binding Volume, Converter={x:Static c:VolumePercentConverter.Instance}}"
+                                               FontSize="10" FontWeight="Bold"
+                                               Foreground="{DynamicResource TextPrimary}"
+                                               HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Grid.Row="2" Text="VOL" FontSize="9" FontWeight="Black"
+                                               Foreground="{DynamicResource TextSecondary}"
+                                               HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+
+                    <!-- Preset card: one card representing a multi-track scene.
+                         Same playlist-owned hiding as the track card. -->
+                    <DataTemplate DataType="vm:PlayingPresetViewModel">
+                        <Border BorderBrush="{DynamicResource PrimaryAccent}" BorderThickness="2" CornerRadius="10"
+                                Margin="5" Padding="12" Background="{DynamicResource PanelBackground2}"
+                                Width="350" ToolTip.Tip="{Binding Name}"
+                                IsVisible="{Binding !IsPlaylistOwned}">
+                            <Grid ColumnDefinitions="*, 50" RowDefinitions="Auto, Auto, Auto">
+                                <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="Auto, *, Auto">
+                                    <!-- Falls back to a generic preset icon (ra-overmind) if the preset doesn't have one assigned. -->
+                                    <controls:RpgIcon Grid.Column="0"
+                                                      IconName="{Binding Preset.Icon, FallbackValue='ra-overmind', TargetNullValue='ra-overmind'}"
+                                                      FontSize="22"
+                                                      Foreground="{DynamicResource PrimaryAccent}"
+                                                      VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                               FontWeight="Bold" FontSize="16"
+                                               Foreground="{DynamicResource TextPrimary}"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <controls:AudioVisualizer Grid.Column="2"
+                                                              Width="80" Height="30"
+                                                              Source="{Binding}"
+                                                              BarBrush="{DynamicResource PrimaryAccent}"
+                                                              Margin="8,0,0,0" />
+                                </Grid>
+
+                                <StackPanel Grid.Row="1" Grid.Column="0"
+                                            Orientation="Horizontal" Spacing="6" Margin="0,4,0,8">
+                                    <TextBlock Text="Preset (scene)" FontSize="11"
+                                               Foreground="{DynamicResource TextSecondary}"
+                                               VerticalAlignment="Center" />
+                                    <!-- Sampler badges: small chips showing what DSP is
+                                         active for this playback. Combined preset chain +
+                                         shortcut chain (if launched from a shortcut). -->
+                                    <ItemsControl ItemsSource="{Binding AttachedSamplers}"
+                                                  IsVisible="{Binding HasAttachedSamplers}"
+                                                  VerticalAlignment="Center">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="vm:SamplerBadge">
+                                                <Border Background="{DynamicResource InfoBackground}"
+                                                        CornerRadius="3" Padding="6,1" Margin="2,0"
+                                                        ToolTip.Tip="{Binding PluginId}">
+                                                    <TextBlock Text="{Binding PluginName}"
+                                                               FontSize="10" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource InfoForeground}" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="0"
+                                            Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                    <ToggleButton IsChecked="{Binding IsPaused}" Content="{Binding PlayPauseText}"
+                                                  MinWidth="80" HorizontalContentAlignment="Center" FontSize="12" Padding="8,6" />
+                                    <Button Content="■" FontSize="12" Padding="12,6"
+                                            Command="{Binding $parent[UserControl].((vm:MixerViewModel)DataContext).StopItemCommand}"
+                                            CommandParameter="{Binding}"
+                                            Background="{DynamicResource DangerBackground}" Foreground="{DynamicResource DangerForeground}" ToolTip.Tip="Stop preset" />
+
+                                    <Button Content="🎛" FontSize="12" Padding="12,6"
+                                            IsVisible="{Binding HasSamplerEditor}"
+                                            Command="{Binding OpenSamplerEditorCommand}"
+                                            ToolTip.Tip="Open the FX chain editor for this preset" />
+
+                                    <!-- Per-session view of every child track. Loop toggles here apply
+                                         live to the running provider and don't write back to the saved
+                                         preset. -->
+                                    <Button Content="📋" FontSize="14" Padding="10,6"
+                                            ToolTip.Tip="View tracks in this preset">
+                                        <Button.Flyout>
+                                            <Flyout Placement="Top">
+                                                <Border Width="360" MaxHeight="380" Padding="6">
+                                                    <Grid RowDefinitions="Auto, *, Auto">
+                                                        <TextBlock Grid.Row="0" Text="Tracks in this preset"
+                                                                   FontSize="11" FontWeight="Bold"
+                                                                   Foreground="{DynamicResource TextSecondary}"
+                                                                   Margin="2,0,0,6" />
+                                                        <ScrollViewer Grid.Row="1">
+                                                            <ItemsControl ItemsSource="{Binding Children}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate DataType="vm:PresetChildEntry">
+                                                                        <Border Margin="0,2" Padding="8,6"
+                                                                                CornerRadius="4"
+                                                                                Background="{DynamicResource PanelBackground2}">
+                                                                            <Grid ColumnDefinitions="Auto, *, Auto, Auto">
+                                                                                <controls:RpgIcon Grid.Column="0"
+                                                                                                  IconName="{Binding Icon}"
+                                                                                                  FontSize="14"
+                                                                                                  Foreground="{DynamicResource PrimaryAccent}"
+                                                                                                  VerticalAlignment="Center"
+                                                                                                  Margin="0,0,8,0" />
+                                                                                <StackPanel Grid.Column="1" Spacing="0" VerticalAlignment="Center">
+                                                                                    <TextBlock Text="{Binding Name}"
+                                                                                               FontWeight="SemiBold"
+                                                                                               TextTrimming="CharacterEllipsis"
+                                                                                               Foreground="{DynamicResource TextPrimary}" />
+                                                                                    <TextBlock Text="{Binding LengthDisplay}"
+                                                                                               FontSize="9"
+                                                                                               Foreground="{DynamicResource TextSecondary}" />
+                                                                                </StackPanel>
+                                                                                <ToggleButton Grid.Column="2"
+                                                                                              IsChecked="{Binding IsLooping}"
+                                                                                              Padding="6,3" FontSize="12"
+                                                                                              ToolTip.Tip="Loop this child for this session">
+                                                                                    <TextBlock Text="🔁" />
+                                                                                </ToggleButton>
+                                                                            </Grid>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </ScrollViewer>
+                                                        <TextBlock Grid.Row="2"
+                                                                   Text="Loop changes apply to this run only. Saved preset is unaffected."
+                                                                   FontSize="10"
+                                                                   Foreground="{DynamicResource TextSecondary}"
+                                                                   TextWrapping="Wrap"
+                                                                   Margin="2,8,0,0" />
+                                                    </Grid>
+                                                </Border>
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                </StackPanel>
+
+                                <Grid Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" RowDefinitions="*, Auto, Auto" Margin="10,0,0,0">
+                                    <Slider Grid.Row="0" Minimum="0" Maximum="2" Value="{Binding Volume}"
+                                            Orientation="Vertical" VerticalAlignment="Stretch" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Row="1" Text="{Binding Volume, Converter={x:Static c:VolumePercentConverter.Instance}}"
+                                               FontSize="10" FontWeight="Bold"
+                                               Foreground="{DynamicResource TextPrimary}"
+                                               HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                    <TextBlock Grid.Row="2" Text="VOL" FontSize="9" FontWeight="Black"
+                                               Foreground="{DynamicResource TextSecondary}"
+                                               HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+
+                    <!-- Playlist card: shows the running playlist with current /
+                         next item info and transport controls. The child track
+                         or preset cards are hidden while playlist-owned, so
+                         this is the only visible card for the playlist. -->
+                    <DataTemplate DataType="vm:PlayingPlaylistViewModel">
+                        <Border BorderBrush="{DynamicResource PrimaryAccent}" BorderThickness="2" CornerRadius="10"
+                                Margin="5" Padding="14" Background="{DynamicResource PanelBackground1}"
+                                Width="380" ToolTip.Tip="{Binding Name}">
+                            <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto" RowSpacing="6">
+                                <!-- Header: playlist name + position -->
+                                <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                        <controls:RpgIcon IconName="{Binding Playlist.Icon, FallbackValue='ra-stack', TargetNullValue='ra-stack'}"
+                                                          FontSize="22"
+                                                          Foreground="{DynamicResource PrimaryAccent}"
+                                                          VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontWeight="Bold" FontSize="16"
+                                                   Foreground="{DynamicResource TextPrimary}"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding PositionDisplay}"
+                                               FontSize="11" FontWeight="Bold"
+                                               Foreground="{DynamicResource TextSecondary}"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+
+                                <!-- Sampler badges for the playlist run. Combined
+                                     playlist chain + shortcut chain (if any). -->
+                                <ItemsControl Grid.Row="1"
+                                              ItemsSource="{Binding AttachedSamplers}"
+                                              IsVisible="{Binding HasAttachedSamplers}"
+                                              HorizontalAlignment="Left">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="vm:SamplerBadge">
+                                            <Border Background="{DynamicResource InfoBackground}"
+                                                    CornerRadius="3" Padding="6,2" Margin="0,0,4,0"
+                                                    ToolTip.Tip="{Binding PluginId}">
+                                                <TextBlock Text="{Binding PluginName}"
+                                                           FontSize="10" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource InfoForeground}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- "Now Playing" line -->
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="NOW:" FontSize="10" FontWeight="Bold"
+                                               Foreground="{DynamicResource PrimaryAccent}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding CurrentItemDisplay}"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource TextPrimary}"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <!-- "Up Next" line -->
+                                <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="NEXT:" FontSize="10" FontWeight="Bold"
+                                               Foreground="{DynamicResource TextSecondary}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding NextItemDisplay}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextSecondary}"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <!-- Transport row -->
+                                <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+                                    <Button Content="⏮" FontSize="14" Padding="10,6"
+                                            Command="{Binding SkipBackwardCommand}"
+                                            IsEnabled="{Binding HasPreviousItem}"
+                                            ToolTip.Tip="Previous item" />
+                                    <ToggleButton IsChecked="{Binding IsPaused}" Content="{Binding PlayPauseText}"
+                                                  MinWidth="80" HorizontalContentAlignment="Center"
+                                                  FontSize="12" Padding="8,6" />
+                                    <Button Content="⏭" FontSize="14" Padding="10,6"
+                                            Command="{Binding SkipForwardCommand}"
+                                            IsEnabled="{Binding HasNextItem}"
+                                            ToolTip.Tip="Next item" />
+                                    <Button Content="■" FontSize="12" Padding="12,6"
+                                            Command="{Binding StopPlaylistCommand}"
+                                            Background="{DynamicResource DangerBackground}" Foreground="{DynamicResource DangerForeground}"
+                                            ToolTip.Tip="Stop playlist" />
+
+                                    <Button Content="🎛" FontSize="12" Padding="12,6"
+                                            IsVisible="{Binding HasSamplerEditor}"
+                                            Command="{Binding OpenSamplerEditorCommand}"
+                                            ToolTip.Tip="Open the FX chain editor for this playlist" />
+
+                                    <!-- Per-session queue view: loop overrides + reorder of upcoming
+                                         items. Changes here don't write back to the saved playlist. -->
+                                    <Button Content="📋" FontSize="14" Padding="10,6"
+                                            ToolTip.Tip="View / edit playlist for this session">
+                                        <Button.Flyout>
+                                            <Flyout Placement="Top">
+                                                <Border Width="420" MaxHeight="420" Padding="6">
+                                                    <Grid RowDefinitions="Auto, *, Auto">
+                                                        <TextBlock Grid.Row="0" Text="Session queue"
+                                                                   FontSize="11" FontWeight="Bold"
+                                                                   Foreground="{DynamicResource TextSecondary}"
+                                                                   Margin="2,0,0,6" />
+                                                        <ScrollViewer Grid.Row="1">
+                                                            <ItemsControl ItemsSource="{Binding SessionItems}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate DataType="vm:PlaylistItemEntry">
+                                                                        <Border Margin="0,2" Padding="8,6"
+                                                                                CornerRadius="4"
+                                                                                Background="{DynamicResource PanelBackground2}"
+                                                                                Opacity="{Binding RowOpacity}">
+                                                                            <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto, Auto">
+                                                                                <TextBlock Grid.Column="0"
+                                                                                           Text="{Binding PositionDisplay}"
+                                                                                           Width="26" FontSize="11"
+                                                                                           Foreground="{DynamicResource TextSecondary}"
+                                                                                           VerticalAlignment="Center" />
+                                                                                <StackPanel Grid.Column="1" Spacing="0" VerticalAlignment="Center">
+                                                                                    <TextBlock Text="{Binding Name}"
+                                                                                               FontWeight="SemiBold"
+                                                                                               TextTrimming="CharacterEllipsis"
+                                                                                               Foreground="{DynamicResource TextPrimary}" />
+                                                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                                        <TextBlock Text="preset"
+                                                                                                   FontSize="9"
+                                                                                                   Foreground="{DynamicResource PrimaryAccent}"
+                                                                                                   IsVisible="{Binding IsPreset}" />
+                                                                                        <TextBlock Text="{Binding LengthDisplay}"
+                                                                                                   FontSize="9"
+                                                                                                   Foreground="{DynamicResource TextSecondary}" />
+                                                                                    </StackPanel>
+                                                                                </StackPanel>
+                                                                                <TextBlock Grid.Column="2"
+                                                                                           Text="{Binding StatusLabel}"
+                                                                                           FontSize="9" FontWeight="Bold"
+                                                                                           Foreground="{DynamicResource PrimaryAccent}"
+                                                                                           VerticalAlignment="Center"
+                                                                                           Margin="0,0,6,0" />
+                                                                                <ToggleButton Grid.Column="3"
+                                                                                              IsChecked="{Binding IsLooping, Mode=OneWay}"
+                                                                                              IsEnabled="{Binding CanModify}"
+                                                                                              Padding="6,3" FontSize="12"
+                                                                                              ToolTip.Tip="Loop this item for this session only"
+                                                                                              Command="{Binding $parent[ItemsControl].((vm:PlayingPlaylistViewModel)DataContext).ToggleEntryLoopCommand}"
+                                                                                              CommandParameter="{Binding}">
+                                                                                    <TextBlock Text="🔁" />
+                                                                                </ToggleButton>
+                                                                                <Button Grid.Column="4" Content="▲"
+                                                                                        FontSize="10" Padding="6,3"
+                                                                                        Margin="4,0,0,0"
+                                                                                        IsEnabled="{Binding CanModify}"
+                                                                                        ToolTip.Tip="Move up (upcoming items only)"
+                                                                                        Command="{Binding $parent[ItemsControl].((vm:PlayingPlaylistViewModel)DataContext).MoveEntryUpCommand}"
+                                                                                        CommandParameter="{Binding}" />
+                                                                                <Button Grid.Column="5" Content="▼"
+                                                                                        FontSize="10" Padding="6,3"
+                                                                                        Margin="2,0,0,0"
+                                                                                        IsEnabled="{Binding CanModify}"
+                                                                                        ToolTip.Tip="Move down (upcoming items only)"
+                                                                                        Command="{Binding $parent[ItemsControl].((vm:PlayingPlaylistViewModel)DataContext).MoveEntryDownCommand}"
+                                                                                        CommandParameter="{Binding}" />
+                                                                            </Grid>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </ScrollViewer>
+                                                        <TextBlock Grid.Row="2"
+                                                                   Text="Loop and order changes apply to this run only. Saved playlist is unaffected."
+                                                                   FontSize="10"
+                                                                   Foreground="{DynamicResource TextSecondary}"
+                                                                   TextWrapping="Wrap"
+                                                                   Margin="2,8,0,0" />
+                                                    </Grid>
+                                                </Border>
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.DataTemplates>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Plugin Extension Area (bottom of the left column) -->
+        <ItemsControl Grid.Row="2" ItemsSource="{Binding PluginControls}"
+                      IsVisible="{Binding !!PluginControls.Count}" Margin="0,10,0,0">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="{DynamicResource PanelBackground3}" CornerRadius="8" Padding="15" Margin="0,10,0,0">
+                        <ContentControl Content="{Binding}" />
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+
+    <!-- Master output strip: vertical sliders pinned to the right edge of
+         the mixer. The Local slider is always present; one slider per
+         CONNECTED bridge plugin (Discord / Zoom / Mumble / …) appears
+         beside it via the ItemsControl below — sliders auto-add when a
+         bridge connects, auto-remove when it disconnects. The "FX" button
+         opens the sampler chain editor for the master bus.
+
+         Sizing strategy: panel width is dictated BY THE SLIDER STRIP, so
+         a single Local slider = compact ~80px panel and four bridges
+         expand it to ~290px. To make that work, two things have to NOT
+         dominate the width:
+           1) The "Master output" title uses TextWrapping=Wrap so it
+              flows onto multiple lines when the strip is narrow.
+           2) The FX Chain button uses a vertical icon+text stack instead
+              of inline "🎛 FX Chain", keeping its natural width down to
+              ~50px so a single slider column doesn't get over-shadowed
+              by the button.
+         Border HorizontalAlignment=Left anchors the panel to the LEFT
+         edge of its Grid column so it sits flush against the active
+         items list to its left rather than floating in dead space. -->
+    <Border Grid.Column="1" Background="{DynamicResource PanelBackground1}"
+            CornerRadius="8" Padding="12,12" Margin="10,0,0,0"
+            HorizontalAlignment="Left">
+        <!-- Three rows: title (Auto), slider strip (*, expands to fill the
+             panel's vertical space), FX chain button (Auto). A Grid is
+             required here rather than a vertical StackPanel because
+             StackPanel gives each child only its desired height — the
+             slider strip would stay at MinHeight=180 even when the panel
+             is 700 px tall. The * row hands the strip every leftover
+             pixel; each strip child sets VerticalAlignment=Stretch so
+             the sliders themselves grow with the panel. -->
+        <Grid RowDefinitions="Auto, *, Auto" RowSpacing="6">
+
+            <TextBlock Grid.Row="0" Text="Master output"
+                       FontSize="11" FontWeight="Bold"
+                       Foreground="{DynamicResource TextSecondary}"
+                       HorizontalAlignment="Stretch" TextAlignment="Center"
+                       TextWrapping="Wrap" />
+
+            <!-- Horizontal strip of slider columns. Phase F layout:
+                 bridge columns sit to the LEFT, Local is the rightmost
+                 fixed column. Each bridge strip has IsVisible bound to
+                 the bridge's connection state — invisible items collapse
+                 (Avalonia bool IsVisible is collapse-semantic), so the
+                 panel shrinks to exactly the visible-bridge count. The
+                 host-side BridgeStrips collection has one entry per
+                 ENABLED bridge plugin (not per connected one), so each
+                 bridge's volume persists across connect/disconnect.
+                 VerticalAlignment=Stretch pulls the strip down to the
+                 panel's full height; each strip Grid below inherits
+                 that and lets its Slider's "*"-row consume the slack. -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Stretch">
+
+                <!-- One column per enabled bridge plugin. Hidden until
+                     the bridge connects; volume persists across
+                     connect/disconnect via BridgeStripViewModel. -->
+                <ItemsControl ItemsSource="{Binding BridgeStrips}"
+                              VerticalAlignment="Stretch">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="10"
+                                        VerticalAlignment="Stretch" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="vm:BridgeStripViewModel">
+                            <Grid Width="50" RowDefinitions="*, Auto, Auto"
+                                  VerticalAlignment="Stretch"
+                                  IsVisible="{Binding IsVisible}"
+                                  ToolTip.Tip="{Binding DisplayName}">
+                                <Slider Grid.Row="0"
+                                        Orientation="Vertical" Minimum="0" Maximum="1"
+                                        Value="{Binding Volume}"
+                                        VerticalAlignment="Stretch" HorizontalAlignment="Center"
+                                        MinHeight="180" />
+                                <TextBlock Grid.Row="1"
+                                           Text="{Binding Volume, Converter={x:Static c:VolumePercentConverter.Instance}}"
+                                           FontSize="11" FontWeight="Bold"
+                                           Foreground="{DynamicResource TextPrimary}"
+                                           HorizontalAlignment="Center" Margin="0,6,0,0" />
+                                <TextBlock Grid.Row="2" Text="{Binding DisplayName}"
+                                           FontSize="10" FontWeight="Black"
+                                           Foreground="{DynamicResource TextSecondary}"
+                                           HorizontalAlignment="Stretch"
+                                           TextAlignment="Center"
+                                           Margin="0,2,0,0"
+                                           TextWrapping="Wrap"
+                                           MaxLines="2"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Local (always shown, rightmost). -->
+                <Grid Width="50" RowDefinitions="*, Auto, Auto"
+                      VerticalAlignment="Stretch">
+                    <Slider Grid.Row="0"
+                            Orientation="Vertical" Minimum="0" Maximum="1"
+                            Value="{Binding LocalVolume}"
+                            VerticalAlignment="Stretch" HorizontalAlignment="Center"
+                            MinHeight="180" />
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding LocalVolume, Converter={x:Static c:VolumePercentConverter.Instance}}"
+                               FontSize="11" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimary}"
+                               HorizontalAlignment="Center" Margin="0,6,0,0" />
+                    <TextBlock Grid.Row="2" Text="Local"
+                               FontSize="10" FontWeight="Black"
+                               Foreground="{DynamicResource TextSecondary}"
+                               HorizontalAlignment="Center" Margin="0,2,0,0"
+                               TextTrimming="CharacterEllipsis" />
+                </Grid>
+
+            </StackPanel>
+
+            <!-- FX Chain trigger. Vertical icon-above-text layout keeps
+                 the button narrow enough that a single-slider strip can
+                 dictate the panel width without the button bullying it
+                 wider. Tooltip carries the full description for hover. -->
+            <Button Grid.Row="2"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Padding="6,6" Margin="0,4,0,0"
+                    ToolTip.Tip="Configure master FX chain (Reverb, EQ, etc.) that affects all audio"
+                    Command="{Binding OpenMasterFxChainCommand}">
+                <StackPanel Orientation="Vertical" Spacing="0" HorizontalAlignment="Center">
+                    <TextBlock Text="🎛" FontSize="14" HorizontalAlignment="Center" />
+                    <TextBlock Text="FX Chain" FontSize="9" FontWeight="Bold"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
+        </Grid>
+    </Border>
+    </Grid>
+</UserControl>

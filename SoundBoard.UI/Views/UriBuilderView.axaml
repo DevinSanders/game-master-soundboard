@@ -1,0 +1,193 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             xmlns:c="using:SoundBoard.UI.Converters"
+             x:Class="SoundBoard.UI.Views.UriBuilderView"
+             x:DataType="vm:UriBuilderViewModel">
+
+    <ScrollViewer>
+        <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, *" Margin="20" ColumnSpacing="20">
+            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="URI Builder"
+                       FontSize="24" FontWeight="Bold"
+                       Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15" />
+
+            <!-- LEFT: form -->
+            <Border Grid.Row="1" Grid.Column="0"
+                    Background="{DynamicResource PanelBackground1}" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="14">
+                    <!-- Target drop zone -->
+                    <Border x:Name="DropZone"
+                            Background="{DynamicResource PanelBackground2}"
+                            CornerRadius="8" Padding="14"
+                            BorderThickness="2" BorderBrush="Transparent">
+                        <Grid>
+                            <!-- Empty state -->
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Spacing="6" IsVisible="{Binding !HasItem}">
+                                <TextBlock Text="📥" FontSize="36" HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondary}" />
+                                <TextBlock Text="Drag a track, preset, or playlist here"
+                                           Foreground="{DynamicResource TextSecondary}"
+                                           HorizontalAlignment="Center" FontWeight="SemiBold" />
+                                <TextBlock Text="The action options below adapt to what you drop."
+                                           FontSize="11" Foreground="{DynamicResource TextSecondary}"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+
+                            <!-- Filled state -->
+                            <Grid ColumnDefinitions="*, Auto" IsVisible="{Binding HasItem}">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock Text="{Binding ItemKindDisplay}"
+                                               FontSize="11" FontWeight="Bold"
+                                               Foreground="{DynamicResource PrimaryAccent}" />
+                                    <TextBlock Text="{Binding SelectedItemName}"
+                                               FontSize="18" FontWeight="Bold"
+                                               Foreground="{DynamicResource TextPrimary}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="✕"
+                                        Command="{Binding ClearItemCommand}"
+                                        Background="Transparent" Padding="8,4"
+                                        ToolTip.Tip="Clear selection" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel>
+                        <TextBlock Text="Action" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextSecondary}" />
+                        <ComboBox ItemsSource="{Binding ActionOptions}"
+                                  SelectedItem="{Binding SelectedAction}"
+                                  HorizontalAlignment="Stretch" />
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock Text="Link label (shown in Markdown / HTML)" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextSecondary}" />
+                        <TextBox Text="{Binding LinkLabel}" />
+                    </StackPanel>
+
+                    <!-- Parameters: only relevant for Play actions -->
+                    <Border BorderBrush="{DynamicResource PanelBackground3}" BorderThickness="1"
+                            CornerRadius="6" Padding="12"
+                            IsVisible="{Binding ActionAllowsParams}">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Optional parameters" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimary}" />
+
+                            <Grid ColumnDefinitions="Auto, *, Auto">
+                                <CheckBox Grid.Column="0" Content="Volume"
+                                          IsChecked="{Binding UseVolume}" />
+                                <Slider Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding Volume}"
+                                        Margin="10,0,10,0"
+                                        IsEnabled="{Binding UseVolume}" />
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding Volume, Converter={x:Static c:VolumePercentConverter.Instance}}"
+                                           Width="40" TextAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondary}" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="Auto, *">
+                                <CheckBox Grid.Column="0" Content="Loop"
+                                          IsChecked="{Binding UseLoop}" />
+                                <ToggleSwitch Grid.Column="1" Margin="10,0,0,0"
+                                              IsChecked="{Binding Loop}"
+                                              IsEnabled="{Binding UseLoop}"
+                                              OnContent="Loop on" OffContent="Loop off" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="Auto, *, Auto">
+                                <CheckBox Grid.Column="0" Content="Fade in"
+                                          IsChecked="{Binding UseFadeIn}" />
+                                <Slider Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding FadeInSeconds}"
+                                        Margin="10,0,10,0"
+                                        IsEnabled="{Binding UseFadeIn}" />
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding FadeInSeconds, StringFormat='{}{0:F1}s'}"
+                                           Width="40" TextAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondary}" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="Auto, *, Auto">
+                                <CheckBox Grid.Column="0" Content="Fade out"
+                                          IsChecked="{Binding UseFadeOut}" />
+                                <Slider Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding FadeOutSeconds}"
+                                        Margin="10,0,10,0"
+                                        IsEnabled="{Binding UseFadeOut}" />
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding FadeOutSeconds, StringFormat='{}{0:F1}s'}"
+                                           Width="40" TextAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondary}" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="Auto, *, Auto">
+                                <CheckBox Grid.Column="0" Content="Start delay"
+                                          IsChecked="{Binding UseStartDelay}"
+                                          ToolTip.Tip="Silence before playback begins (and between loops if looping)." />
+                                <Slider Grid.Column="1" Minimum="0" Maximum="60" Value="{Binding StartDelaySeconds}"
+                                        Margin="10,0,10,0"
+                                        IsEnabled="{Binding UseStartDelay}" />
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding StartDelaySeconds, StringFormat='{}{0:F1}s'}"
+                                           Width="40" TextAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondary}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- stopPlaying is independent of action — works with Play, Stop, Toggle, Next, Previous. -->
+                    <CheckBox Content="Stop everything else first (stopPlaying)"
+                              IsChecked="{Binding StopPlaying}" />
+                </StackPanel>
+            </Border>
+
+            <!-- RIGHT: output formats -->
+            <Border Grid.Row="1" Grid.Column="1"
+                    Background="{DynamicResource PanelBackground2}" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Generated links" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimary}" FontSize="16" />
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Plain URI" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" />
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBox Grid.Column="0" Text="{Binding PlainUri}" IsReadOnly="True"
+                                     TextWrapping="Wrap" FontFamily="Cascadia Mono, Consolas, monospace" />
+                            <Button Grid.Column="1" Content="Copy" Margin="8,0,0,0"
+                                    Click="OnCopyPlainClicked" />
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Markdown (Obsidian-compatible)" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextSecondary}" />
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBox Grid.Column="0" Text="{Binding MarkdownLink}" IsReadOnly="True"
+                                     TextWrapping="Wrap" FontFamily="Cascadia Mono, Consolas, monospace" />
+                            <Button Grid.Column="1" Content="Copy" Margin="8,0,0,0"
+                                    Click="OnCopyMarkdownClicked" />
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="HTML anchor" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" />
+                        <Grid ColumnDefinitions="*, Auto">
+                            <TextBox Grid.Column="0" Text="{Binding HtmlLink}" IsReadOnly="True"
+                                     TextWrapping="Wrap" FontFamily="Cascadia Mono, Consolas, monospace" />
+                            <Button Grid.Column="1" Content="Copy" Margin="8,0,0,0"
+                                    Click="OnCopyHtmlClicked" />
+                        </Grid>
+                    </StackPanel>
+
+                    <TextBlock TextWrapping="Wrap" FontSize="11"
+                               Foreground="{DynamicResource TextSecondary}"
+                               Text="Click the gmsound:// link in a browser, Obsidian, or anywhere markdown is rendered. The OS will launch this app (or activate it if already running) and execute the URI." />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,95 @@
+name: Bug report
+description: Something is broken, crashing, or behaving unexpectedly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! The single most useful thing you can attach is a **debug log**.
+
+        **How to generate one:**
+
+        1. Launch the app with the `--debug` flag (e.g. `GameMasterSoundBoard.exe --debug` on Windows, or `./GameMasterSoundBoard --debug` on macOS/Linux).
+        2. Reproduce the issue.
+        3. Exit the app cleanly.
+        4. Grab the most recent log file from:
+           - **Windows:** `%LocalAppData%\GameMasterSoundBoard\logs\`
+           - **macOS:** `~/Library/Application Support/GameMasterSoundBoard/logs/`
+           - **Linux:** `~/.local/share/GameMasterSoundBoard/logs/`
+        5. Drag it into the "Debug log" field below, or paste the contents.
+
+        If the app crashed, the same folder will contain a `crash-*.log` — attach that too.
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Found under Help → About, or in the app window title bar.
+      placeholder: e.g. 1.2.3
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: os-detail
+    attributes:
+      label: OS version / distribution
+      description: Optional. e.g. "Windows 11 23H2", "macOS 14.5", "Ubuntu 24.04".
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Library window
+        2. Drag a track onto …
+        3. Click …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Debug log
+      description: Drag the `.log` file into this box, or paste the contents inside a code block.
+      render: shell
+
+  - type: textarea
+    id: crash
+    attributes:
+      label: Crash log (if applicable)
+      description: Attach the `crash-*.log` file from the logs folder if the app crashed.
+      render: shell
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, recordings, related issues, hunches — anything that might help.

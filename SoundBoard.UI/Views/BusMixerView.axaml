@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             xmlns:c="using:SoundBoard.UI.Converters"
+             x:Class="SoundBoard.UI.Views.BusMixerView"
+             x:DataType="vm:BusMixerViewModel">
+
+    <!-- Bus Mixer: one vertical strip per bus. Volume slider + FX button.
+         Layout mirrors MixerView's master/bridge strip column so the
+         visual vocabulary stays consistent between the two windows. -->
+    <Grid RowDefinitions="Auto, *" Margin="20">
+        <TextBlock Grid.Row="0"
+                   Text="Bus Mixer"
+                   FontSize="24"
+                   FontWeight="Bold"
+                   Foreground="{DynamicResource TextPrimary}"
+                   Margin="0,0,0,16" />
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Strips}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="12" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="vm:BusStripViewModel">
+                        <Border BorderBrush="{DynamicResource SubtleBorder}" BorderThickness="1"
+                                CornerRadius="10" Padding="12"
+                                Background="{DynamicResource PanelBackground2}"
+                                Width="110">
+                            <Grid RowDefinitions="Auto, *, Auto, Auto">
+                                <!-- Bus name -->
+                                <TextBlock Grid.Row="0"
+                                           Text="{Binding Name}"
+                                           FontWeight="SemiBold"
+                                           FontSize="14"
+                                           Foreground="{DynamicResource TextPrimary}"
+                                           TextTrimming="CharacterEllipsis"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,0,0,10" />
+
+                                <!-- Vertical volume slider -->
+                                <Slider Grid.Row="1"
+                                        Orientation="Vertical"
+                                        Minimum="0" Maximum="2"
+                                        Value="{Binding Volume, Mode=TwoWay}"
+                                        TickFrequency="0.1"
+                                        IsSnapToTickEnabled="False"
+                                        HorizontalAlignment="Center"
+                                        Height="220" />
+
+                                <!-- Volume readout (0–200%). Re-uses the
+                                     PercentDisplayConverter the master strip
+                                     uses so the formatting stays consistent. -->
+                                <TextBlock Grid.Row="2"
+                                           Text="{Binding Volume, Converter={x:Static c:VolumePercentConverter.Instance}}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TextSecondary}"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,6,0,8" />
+
+                                <!-- FX Chain editor button -->
+                                <Button Grid.Row="3"
+                                        Content="🎛 FX Chain"
+                                        FontSize="11"
+                                        Padding="8,6"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        Command="{Binding OpenFxChainCommand}"
+                                        ToolTip.Tip="Open the FX chain editor for this bus" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

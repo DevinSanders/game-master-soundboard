@@ -1,0 +1,81 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             xmlns:models="using:SoundBoard.Core.Models"
+             xmlns:c="using:SoundBoard.UI.Converters"
+             x:Class="SoundBoard.UI.Views.LibraryView"
+             x:DataType="vm:LibraryViewModel"
+             DragDrop.AllowDrop="True">
+
+    <UserControl.Styles>
+        <!-- Kill the cell-level focus border so only full-row highlight shows -->
+        <Style Selector="DataGridCell:current /template/ Grid#FocusVisual">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="DataGridCell:focus /template/ Grid#FocusVisual">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+    </UserControl.Styles>
+    
+    <Grid RowDefinitions="Auto, *">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,20">
+            <Button Content="Import Audio..." Classes="primary" Command="{Binding ImportTracksCommand}" />
+            <TextBox PlaceholderText="Search tracks..." Text="{Binding SearchText}" Width="200" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding AvailableTags}" SelectedItem="{Binding SelectedTag}" Width="150" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <DataGrid x:Name="TrackGrid" Grid.Row="1" ItemsSource="{Binding FilteredTracks}" AutoGenerateColumns="False"
+                  IsReadOnly="True" GridLinesVisibility="Horizontal"
+                  SelectionMode="Single"
+                  CanUserSortColumns="True"
+                  BorderThickness="1" BorderBrush="{DynamicResource SubtleBorder}" Background="Transparent"
+                  SelectedItem="{Binding SelectedTrack}">
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="▶ Play / Pause" Command="{Binding PlayTrackCommand}" CommandParameter="{Binding SelectedTrack}" />
+                    <MenuItem Header="✏ Edit Track..." Command="{Binding EditTrackCommand}" CommandParameter="{Binding SelectedTrack}" />
+                    <MenuItem Header="📌 Send to Soundboard" ItemsSource="{Binding SoundboardPages}">
+                        <MenuItem.Styles>
+                            <Style Selector="MenuItem" x:DataType="models:ShortcutPage">
+                                <Setter Property="Header" Value="{Binding Name}" />
+                                <Setter Property="Command" Value="{Binding $parent[ContextMenu].DataContext.SendToPageCommand}" />
+                                <Setter Property="CommandParameter" Value="{Binding Id}" />
+                            </Style>
+                        </MenuItem.Styles>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem Header="🗑 Delete" Command="{Binding DeleteTrackCommand}" CommandParameter="{Binding SelectedTrack}" />
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*"
+                                    SortMemberPath="Name" />
+                <DataGridTextColumn Header="Tags" Binding="{Binding Tags}" Width="*"
+                                    SortMemberPath="Tags" />
+                <DataGridTextColumn Header="Length" Width="80"
+                                    SortMemberPath="PlayableLength"
+                                    Binding="{Binding PlayableLength, Converter={x:Static c:DurationDisplayConverter.Instance}}" />
+                <DataGridTemplateColumn Header="Actions" Width="Auto" CanUserSort="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Button Content="▶" ToolTip.Tip="Play"
+                                        Background="{DynamicResource SuccessBackground}" Foreground="{DynamicResource SuccessForeground}"
+                                        Command="{Binding $parent[UserControl].((vm:LibraryViewModel)DataContext).PlayTrackCommand}"
+                                        CommandParameter="{Binding}" Padding="8,4" FontWeight="Bold" />
+                                <Button Content="Edit"
+                                        Background="{DynamicResource InfoBackground}" Foreground="{DynamicResource InfoForeground}"
+                                        Command="{Binding $parent[UserControl].((vm:LibraryViewModel)DataContext).EditTrackCommand}"
+                                        CommandParameter="{Binding}" />
+                                <Button Content="Delete"
+                                        Background="{DynamicResource DangerBackground}" Foreground="{DynamicResource DangerForeground}"
+                                        Command="{Binding $parent[UserControl].((vm:LibraryViewModel)DataContext).DeleteTrackCommand}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

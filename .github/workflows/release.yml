@@ -1,0 +1,429 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release as (e.g. v1.2.3-beta.1). Created if it does not exist.'
+        required: true
+      prerelease:
+        description: 'Mark as pre-release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Step 1: Build platform-specific publish trees + the universal zip/tar
+  # fallback artifacts. Each platform picks up its own job from here.
+  # ──────────────────────────────────────────────────────────────────────────
+  publish:
+    name: Publish (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            archive: zip
+          - os: ubuntu-latest
+            rid: linux-x64
+            archive: tar.gz
+          - os: ubuntu-latest
+            rid: linux-arm64
+            archive: tar.gz
+          - os: macos-latest
+            rid: osx-x64
+            archive: zip
+          - os: macos-latest
+            rid: osx-arm64
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Publish self-contained binary
+        shell: bash
+        run: |
+          dotnet publish SoundBoard.Desktop/SoundBoard.Desktop.csproj \
+            --configuration Release \
+            --runtime ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:Version=${{ steps.version.outputs.version }} \
+            --output publish/${{ matrix.rid }}
+
+      - name: Stage third-party licenses
+        shell: bash
+        # LGPL-2.0-or-later compliance: OpenAL Soft is shipped per-RID as a
+        # native shared library inside the self-contained publish output.
+        # LGPL §6 obliges us to either ship its source alongside or provide a
+        # written offer for it. We do both — the static SOURCE-OFFER.txt is
+        # the written offer, and we download the upstream COPYING at release
+        # time from a pinned commit so we never drift from the actual license
+        # text being enforced upstream.
+        run: |
+          mkdir -p publish/${{ matrix.rid }}/THIRD-PARTY-LICENSES
+          cp packaging/licenses/README.md publish/${{ matrix.rid }}/THIRD-PARTY-LICENSES/
+          cp packaging/licenses/SOURCE-OFFER.txt publish/${{ matrix.rid }}/THIRD-PARTY-LICENSES/
+          # Pinned to a known-good OpenAL Soft commit. Bump this when bumping
+          # the Silk.NET.OpenAL.Soft.Native NuGet to a version that ships a
+          # different upstream COPYING — usually never, since LGPLv2 is
+          # stable and the file rarely changes.
+          OPENAL_SOFT_REF="1.23.1"
+          curl --fail --silent --show-error \
+            "https://raw.githubusercontent.com/kcat/openal-soft/${OPENAL_SOFT_REF}/COPYING" \
+            -o publish/${{ matrix.rid }}/THIRD-PARTY-LICENSES/OpenAL-Soft-COPYING.txt
+          echo "Bundled licenses:"
+          ls -la publish/${{ matrix.rid }}/THIRD-PARTY-LICENSES/
+
+      # ────── Manual-install fallback archive (every platform) ──────
+      - name: Fallback archive (zip)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $name = "GameMasterSoundBoard-${{ steps.version.outputs.version }}-${{ matrix.rid }}.zip"
+          Compress-Archive -Path publish/${{ matrix.rid }}/* -DestinationPath $name
+          "FALLBACK=$name" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Fallback archive (tar.gz)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          NAME="GameMasterSoundBoard-${{ steps.version.outputs.version }}-${{ matrix.rid }}.tar.gz"
+          tar -czf "$NAME" -C "publish/${{ matrix.rid }}" .
+          echo "FALLBACK=$NAME" >> "$GITHUB_ENV"
+
+      # ────── Windows: Inno Setup installer ──────
+      - name: Build Windows installer (Inno Setup)
+        if: matrix.rid == 'win-x64'
+        shell: pwsh
+        run: |
+          # Inno Setup 6 is preinstalled on windows-latest at this path.
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          & $iscc /Qp `
+            "/DAppVersion=${{ steps.version.outputs.version }}" `
+            "/DSourceDir=..\..\publish\win-x64" `
+            "/DOutputDir=..\..\artifacts" `
+            "packaging\windows\installer.iss"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $installer = Get-ChildItem artifacts -Filter "GameMasterSoundBoard-Setup-*.exe" | Select-Object -First 1
+          "INSTALLER=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          # SHA256 used by the chocolatey job.
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash
+          "INSTALLER_SHA256=$hash" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      # ────── macOS: .app bundle + .dmg ──────
+      - name: Build macOS .app + .dmg
+        if: startsWith(matrix.rid, 'osx-')
+        shell: bash
+        run: |
+          chmod +x packaging/macos/build-app.sh packaging/macos/build-dmg.sh
+          mkdir -p artifacts
+          packaging/macos/build-app.sh \
+            "${{ steps.version.outputs.version }}" \
+            "publish/${{ matrix.rid }}" \
+            "artifacts"
+          packaging/macos/build-dmg.sh \
+            "${{ steps.version.outputs.version }}" \
+            "${{ matrix.rid }}" \
+            "artifacts"
+          # Zip the .app for users who want the bundle without mounting a DMG.
+          (cd artifacts && zip -r -q \
+            "GameMasterSoundBoard-${{ steps.version.outputs.version }}-${{ matrix.rid }}-app.zip" \
+            "Game Master Sound Board.app")
+          rm -rf "artifacts/Game Master Sound Board.app"
+
+      # ────── Linux: AppImage (x64 only) + .deb + .rpm (both arches) ──────
+      # Both Linux RIDs cross-compile on the x86_64 ubuntu runner. fpm only
+      # stages files, so it packages arm64 .deb/.rpm cleanly from here; the
+      # tar.gz fallback always works. AppImage is x86_64-only — appimagetool
+      # embeds an arch-matched runtime and cross-building an arm64 AppImage on
+      # an x64 host is unreliable, so arm64 users install via .deb/.rpm/tarball
+      # (Raspberry Pi OS is Debian-based, so .deb is the primary arm64 target).
+      - name: Install Linux packaging tools
+        if: startsWith(matrix.rid, 'linux-')
+        run: |
+          # fpm — generates .deb and .rpm (needed for both arches).
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ruby ruby-dev build-essential rpm
+          sudo gem install --no-document fpm
+          # appimagetool — official AppImage builder (x86_64 target only).
+          if [[ "${{ matrix.rid }}" == "linux-x64" ]]; then
+            wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /tmp/appimagetool
+            chmod +x /tmp/appimagetool
+            sudo mv /tmp/appimagetool /usr/local/bin/appimagetool
+          fi
+
+      - name: Build Linux packages
+        if: startsWith(matrix.rid, 'linux-')
+        run: |
+          chmod +x packaging/linux/*.sh
+          mkdir -p artifacts
+          # Map the .NET RID to the Debian arch label build-deb-rpm.sh expects.
+          case "${{ matrix.rid }}" in
+            linux-x64)   DEB_ARCH=amd64 ;;
+            linux-arm64) DEB_ARCH=arm64 ;;
+          esac
+          packaging/linux/build-deb-rpm.sh \
+            "${{ steps.version.outputs.version }}" \
+            "publish/${{ matrix.rid }}" \
+            "artifacts" \
+            "$DEB_ARCH"
+          # AppImage: x86_64 only.
+          if [[ "${{ matrix.rid }}" == "linux-x64" ]]; then
+            packaging/linux/build-appimage.sh \
+              "${{ steps.version.outputs.version }}" \
+              "publish/${{ matrix.rid }}" \
+              "artifacts"
+          fi
+
+      # ────── Stage every produced artifact for upload ──────
+      - name: Stage artifacts
+        shell: bash
+        run: |
+          mkdir -p staged
+          # The fallback zip/tar always exists; copy it.
+          cp "$FALLBACK" staged/ 2>/dev/null || true
+          # Platform-specific outputs land in artifacts/ — copy whatever's there.
+          if [[ -d artifacts ]]; then
+            cp artifacts/* staged/ 2>/dev/null || true
+          fi
+          ls -la staged
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.rid }}
+          path: staged/
+          if-no-files-found: error
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Step 2: Build the Chocolatey .nupkg. Needs the Windows installer's SHA256,
+  # so it runs after `publish` and reads the workflow artifacts.
+  # ──────────────────────────────────────────────────────────────────────────
+  chocolatey:
+    name: Chocolatey package
+    needs: publish
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: win-x64
+          path: win-artifacts
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Patch chocolatey templates
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem win-artifacts -Filter "GameMasterSoundBoard-Setup-*.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Installer .exe not found in win-artifacts/" }
+          $sha256 = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash
+          $url = "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/$($installer.Name)"
+          $version = "${{ steps.version.outputs.version }}"
+
+          # tools\chocolateyinstall.ps1 — URL + checksum
+          $script = Get-Content packaging\windows\chocolatey\tools\chocolateyinstall.ps1 -Raw
+          $script = $script.Replace('$DOWNLOAD_URL$', $url).Replace('$CHECKSUM$', $sha256)
+          Set-Content packaging\windows\chocolatey\tools\chocolateyinstall.ps1 -Value $script -NoNewline
+
+          # gmsoundboard.nuspec — <version> and <releaseNotes> URL.
+          # `choco pack --version` overrides the <version> element but does NOT
+          # touch arbitrary $VERSION$ placeholders elsewhere in the nuspec,
+          # so the releaseNotes link to /releases/tag/v$VERSION$ would
+          # otherwise ship as the literal string.
+          $nuspec = Get-Content packaging\windows\chocolatey\gmsoundboard.nuspec -Raw
+          $nuspec = $nuspec.Replace('$VERSION$', $version)
+          Set-Content packaging\windows\chocolatey\gmsoundboard.nuspec -Value $nuspec -NoNewline
+
+          Write-Host "Patched chocolatey templates:"
+          Write-Host "  Version: $version"
+          Write-Host "  URL:     $url"
+          Write-Host "  SHA256:  $sha256"
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force chocolatey-out | Out-Null
+          choco pack packaging\windows\chocolatey\gmsoundboard.nuspec `
+            --version ${{ steps.version.outputs.version }} `
+            --outputdirectory chocolatey-out
+
+      - name: Upload chocolatey nupkg
+        uses: actions/upload-artifact@v4
+        with:
+          name: chocolatey
+          path: chocolatey-out/*.nupkg
+          if-no-files-found: error
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Step 2b: Stamp the Homebrew Cask formula with the release version + DMG
+  # checksums and upload it as an artifact. Publishing to the tap
+  # repository (DevinSanders/homebrew-soundboard) is still manual — once
+  # that tap exists this job can grow a step that opens a PR or pushes
+  # the file directly.
+  # ──────────────────────────────────────────────────────────────────────────
+  homebrew:
+    name: Stamp Homebrew Cask formula
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download macOS arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: osx-arm64
+          path: macos-arm64
+
+      - name: Download macOS x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: osx-x64
+          path: macos-x64
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Patch gmsoundboard.rb
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG_ARM64="macos-arm64/GameMasterSoundBoard-${VERSION}-osx-arm64.dmg"
+          DMG_X64="macos-x64/GameMasterSoundBoard-${VERSION}-osx-x64.dmg"
+
+          if [[ ! -f "$DMG_ARM64" ]]; then
+            echo "::error::arm64 DMG not found at $DMG_ARM64"
+            ls -la macos-arm64/
+            exit 1
+          fi
+          if [[ ! -f "$DMG_X64" ]]; then
+            echo "::error::x64 DMG not found at $DMG_X64"
+            ls -la macos-x64/
+            exit 1
+          fi
+
+          SHA_ARM64=$(sha256sum "$DMG_ARM64" | awk '{print $1}')
+          SHA_X64=$(sha256sum "$DMG_X64" | awk '{print $1}')
+
+          mkdir -p homebrew-out
+          sed -e "s|\$VERSION\$|${VERSION}|g" \
+              -e "s|\$SHA256_ARM64\$|${SHA_ARM64}|g" \
+              -e "s|\$SHA256_X64\$|${SHA_X64}|g" \
+              packaging/macos/homebrew/gmsoundboard.rb \
+              > homebrew-out/gmsoundboard.rb
+
+          echo "Patched Cask formula:"
+          echo "  Version:      $VERSION"
+          echo "  SHA256 arm64: $SHA_ARM64"
+          echo "  SHA256 x64:   $SHA_X64"
+          echo
+          echo "Verification — no placeholders should remain:"
+          if grep -F '$' homebrew-out/gmsoundboard.rb | grep -E '\$VERSION\$|\$SHA256'; then
+            echo "::error::Unsubstituted placeholders remain in gmsoundboard.rb"
+            exit 1
+          fi
+
+      - name: Upload Homebrew Cask formula
+        uses: actions/upload-artifact@v4
+        with:
+          name: homebrew
+          path: homebrew-out/gmsoundboard.rb
+          if-no-files-found: error
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Step 3: Bundle everything into a GitHub Release.
+  # ──────────────────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [publish, chocolatey, homebrew]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Detect prerelease + resolve tag
+        id: prerelease
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "prerelease=${{ inputs.prerelease }}" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+              echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            fi
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: List artifacts
+        run: |
+          echo "Final artifact set:"
+          ls -la artifacts/
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          tag_name: ${{ steps.prerelease.outputs.tag }}
+          prerelease: ${{ steps.prerelease.outputs.prerelease }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true

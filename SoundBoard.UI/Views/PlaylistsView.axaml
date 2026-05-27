@@ -1,0 +1,194 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             xmlns:controls="using:SoundBoard.UI.Controls"
+             xmlns:c="using:SoundBoard.UI.Converters"
+             x:Class="SoundBoard.UI.Views.PlaylistsView"
+             x:DataType="vm:PlaylistsViewModel">
+
+    <Grid ColumnDefinitions="280, *" Margin="20">
+        <!-- Left: playlist list -->
+        <Border Grid.Column="0" Background="{DynamicResource PanelBackground1}" CornerRadius="8" Padding="12" Margin="0,0,10,0">
+            <Grid RowDefinitions="Auto, *, Auto">
+                <TextBlock Grid.Row="0" Text="Playlists" FontSize="18" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,10" />
+
+                <ListBox x:Name="PlaylistList" Grid.Row="1"
+                         ItemsSource="{Binding Playlists}" SelectedItem="{Binding SelectedPlaylist}"
+                         Background="Transparent" BorderThickness="0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,4">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Items.Count, StringFormat='{}{0} item(s)'}"
+                                           Foreground="{DynamicResource TextSecondary}" FontSize="11" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Grid.Row="2" Spacing="6" Margin="0,10,0,0">
+                    <Button Content="+ New Playlist" Classes="primary" Command="{Binding CreatePlaylistCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                    <Button Content="🎛 FX Chain..." Command="{Binding OpenFxChainCommand}"
+                            IsEnabled="{Binding SelectedPlaylist, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            ToolTip.Tip="Configure the FX chain applied when this playlist plays"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                    <Button Content="🗑 Delete" Command="{Binding DeletePlaylistCommand}"
+                            CommandParameter="{Binding SelectedPlaylist}"
+                            IsEnabled="{Binding SelectedPlaylist, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            Background="{DynamicResource DangerBackground}" Foreground="{DynamicResource DangerForeground}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Right: drop target + items list -->
+        <Border x:Name="DropPane" Grid.Column="1"
+                Background="{DynamicResource PanelBackground2}" CornerRadius="8" Padding="15"
+                IsVisible="{Binding SelectedPlaylist, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <Grid RowDefinitions="Auto, Auto, Auto, *, Auto">
+                <!-- Header + playback -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto">
+                    <Button Grid.Column="0" Click="OnPickPlaylistIconClicked"
+                            Padding="6" Margin="0,0,10,0"
+                            Background="{DynamicResource PanelBackground1}"
+                            BorderBrush="{DynamicResource PanelBackground3}" BorderThickness="1"
+                            ToolTip.Tip="Pick icon for this playlist">
+                        <controls:RpgIcon IconName="{Binding SelectedPlaylistIcon}"
+                                          FontSize="22"
+                                          Foreground="{DynamicResource PrimaryAccent}"
+                                          Width="26" Height="26" />
+                    </Button>
+                    <TextBlock Grid.Column="1" Text="{Binding SelectedPlaylist.Name}"
+                               FontSize="20" FontWeight="Bold" Foreground="{DynamicResource PrimaryAccent}"
+                               VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                        <Button Content="▶ Play playlist" Classes="primary" Command="{Binding PlaySelectedCommand}" />
+                        <Button Content="■ Stop" Command="{Binding StopSelectedCommand}" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Playlist-wide fade overrides. Zero leaves each item's own
+                     fade settings alone; non-zero forces the fade duration
+                     uniformly across every item in this playlist. -->
+                <Border Grid.Row="1" Margin="0,10,0,0" Padding="12,8"
+                        Background="{DynamicResource PanelBackground1}" CornerRadius="6">
+                    <Grid ColumnDefinitions="Auto, *, Auto, 20, Auto, *, Auto">
+                        <TextBlock Grid.Column="0" Text="Fade in" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondary}"
+                                   VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <Slider Grid.Column="1" Minimum="0" Maximum="10"
+                                Value="{Binding SelectedPlaylistFadeInSeconds}"
+                                ToolTip.Tip="Applied to every item that starts under this playlist. 0 = inherit each track/preset's own fade." />
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding SelectedPlaylistFadeInSeconds, StringFormat='{}{0:F1}s'}"
+                                   Width="40" TextAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextSecondary}" />
+
+                        <TextBlock Grid.Column="4" Text="Fade out" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondary}"
+                                   VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <Slider Grid.Column="5" Minimum="0" Maximum="10"
+                                Value="{Binding SelectedPlaylistFadeOutSeconds}"
+                                ToolTip.Tip="Applied when each item ends or is advanced past. 0 = inherit each track/preset's own fade." />
+                        <TextBlock Grid.Column="6"
+                                   Text="{Binding SelectedPlaylistFadeOutSeconds, StringFormat='{}{0:F1}s'}"
+                                   Width="40" TextAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextSecondary}" />
+                    </Grid>
+                </Border>
+
+                <!-- Playback mode toggles. Autoplay off + Random on = soundbank
+                     mode: each Play picks a different random item. -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="20" Margin="0,8,0,0">
+                    <ToggleSwitch IsChecked="{Binding SelectedPlaylistAutoplay}"
+                                  OnContent="Autoplay" OffContent="Autoplay"
+                                  ToolTip.Tip="When on, the playlist advances to the next item automatically. When off, each Play fires one item and stops." />
+                    <ToggleSwitch IsChecked="{Binding SelectedPlaylistRandom}"
+                                  OnContent="Random" OffContent="Random"
+                                  ToolTip.Tip="Pick items in random order. Combine with Autoplay off to use the playlist as a randomized soundbank — each Play picks a different track." />
+                    <TextBlock Text="Drag tracks from the Library or presets from the Presets window to add them."
+                               FontSize="11" Foreground="{DynamicResource TextSecondary}"
+                               VerticalAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <!-- Item list (drop target) -->
+                <Border x:Name="DropZone" Grid.Row="3"
+                        Background="{DynamicResource PanelBackground1}" CornerRadius="6" Padding="6"
+                        BorderThickness="2" BorderBrush="Transparent">
+                    <Grid>
+                        <!-- Empty-state hint -->
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    IsVisible="{Binding !CurrentItems.Count}" Spacing="6">
+                            <TextBlock Text="📥" FontSize="32" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource TextSecondary}" />
+                            <TextBlock Text="Drag tracks or presets here"
+                                       Foreground="{DynamicResource TextSecondary}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <ListBox x:Name="ItemRows" ItemsSource="{Binding CurrentItems}" SelectedItem="{Binding SelectedItem}"
+                                 Background="Transparent" BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <!-- Per-row pointer events are wired by the
+                                         GhostCardReorderController via Tunnel
+                                         routing on the parent ListBox. -->
+                                    <Border Background="Transparent">
+                                        <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto" Margin="0,2">
+                                            <TextBlock Grid.Column="0" Text="⋮⋮" FontSize="14"
+                                                       Margin="2,0,12,0"
+                                                       Foreground="{DynamicResource TextSecondary}"
+                                                       VerticalAlignment="Center"
+                                                       ToolTip.Tip="Drag to reorder" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Track.Name, FallbackValue=''}"
+                                                           IsVisible="{Binding TrackId, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                <TextBlock Text="{Binding Preset.Name, FallbackValue=''}"
+                                                           IsVisible="{Binding PresetId, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                <TextBlock Text="Track" FontSize="10" Foreground="{DynamicResource TextSecondary}"
+                                                           IsVisible="{Binding TrackId, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                <TextBlock Text="Preset" FontSize="10" Foreground="{DynamicResource TextSecondary}"
+                                                           IsVisible="{Binding PresetId, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="{Binding LengthDisplay}"
+                                                       FontSize="11" Margin="0,0,12,0"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextSecondary}" />
+                                            <!-- Loop override cycle: null (inherit) → true (force loop) → false (force no loop) → null.
+                                                 Label shows the current state; tooltip explains. The override applies only when this
+                                                 item plays in THIS playlist; it doesn't change the library track. -->
+                                            <Button Grid.Column="3" Padding="8,2" Margin="0,0,6,0"
+                                                    Background="Transparent"
+                                                    ToolTip.Tip="Loop override for this playlist entry — click to cycle: Inherit → Force loop → Force no-loop"
+                                                    Command="{Binding $parent[ListBox].((vm:PlaylistsViewModel)DataContext).CycleItemLoopOverrideCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock Text="🔁" FontSize="13" VerticalAlignment="Center" />
+                                                    <TextBlock FontSize="10" VerticalAlignment="Center"
+                                                               Text="{Binding OverrideIsLooping, Converter={x:Static c:LoopOverrideLabelConverter.Instance}}"
+                                                               Foreground="{Binding OverrideIsLooping, Converter={x:Static c:LoopOverrideBrushConverter.Instance}}" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Grid.Column="4" Content="✕" Padding="6,2"
+                                                    Background="Transparent"
+                                                    Command="{Binding $parent[ListBox].((vm:PlaylistsViewModel)DataContext).RemoveItemCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Border>
+
+                <TextBlock Grid.Row="4" Text="Tip: open the Library window for tracks, the Presets window for presets."
+                           FontSize="10" Foreground="{DynamicResource TextSecondary}"
+                           HorizontalAlignment="Center" Margin="0,8,0,0" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,33 @@
+Written offer for source code (LGPL §6 compliance)
+====================================================
+
+Game Master Sound Board includes the following LGPL-licensed
+components in its binary distribution:
+
+  * OpenAL Soft
+      License : LGPL-2.0-or-later
+      Source  : https://github.com/kcat/openal-soft
+      Bundled : runtimes/<rid>/native/libopenal.* (per-platform)
+      License text: see THIRD-PARTY-LICENSES/OpenAL-Soft-COPYING.txt
+                    in this folder.
+
+The corresponding source code for these components is publicly
+available at the URLs above. If for any reason those upstream
+repositories become unavailable, Game Master Sound Board offers to
+supply the complete corresponding source code on a physical medium
+for a charge no more than our cost of physically performing the
+source distribution. This offer is valid for a period of three
+years from the date of distribution of this binary.
+
+To request source code under this offer, contact:
+
+  Devin Sanders <devin.sanders64+gmsound@gmail.com>
+
+State which version of which component you need (the version of
+Game Master Sound Board you received is in the About window or the
+binary's filename), and a postal address. We will respond within
+30 days.
+
+You may also exercise your LGPL rights to modify the LGPL
+components and re-link this application against your modified
+copy — see the COPYING file for the full text of the license.

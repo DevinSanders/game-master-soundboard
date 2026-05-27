@@ -1,0 +1,151 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             xmlns:controls="using:SoundBoard.UI.Controls"
+             xmlns:c="using:SoundBoard.UI.Converters"
+             x:Class="SoundBoard.UI.Views.TrackEditorView"
+             x:DataType="vm:TrackEditorViewModel">
+    <ScrollViewer Padding="20">
+    <StackPanel Spacing="20">
+        <TextBlock Text="Track Editor" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
+        
+        <!-- Full Track Waveform Preview -->
+        <controls:StaticWaveformDisplay Height="100" 
+                                       FilePath="{Binding Track.FilePath}"
+                                       StartPointSeconds="{Binding StartPointSeconds}"
+                                       EndPointSeconds="{Binding EndPointSeconds}"
+                                       TotalDurationSeconds="{Binding TotalDurationSeconds}" />
+
+        <Border Background="{DynamicResource PanelBackground3}" CornerRadius="8" Padding="20">
+            <Grid ColumnDefinitions="150, *, Auto" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto"
+                  Margin="0,0,0,10">
+                <Grid.Styles>
+                    <Style Selector="TextBlock">
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+                        <Setter Property="Margin" Value="0,10,10,10"/>
+                    </Style>
+                    <Style Selector="Slider">
+                        <Setter Property="Margin" Value="0,5,0,5"/>
+                    </Style>
+                    <Style Selector="ToggleSwitch">
+                        <Setter Property="Margin" Value="0,5,0,5"/>
+                    </Style>
+                </Grid.Styles>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Track Name:" />
+                <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding TrackName}" Margin="0,5" />
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Tags:" />
+                <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding TrackTags}"
+                          PlaceholderText="e.g. combat, ambient, tavern" Margin="0,5" />
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Icon:" />
+                <StackPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="10">
+                    <Button Click="OnPickIconClicked" Padding="6"
+                            Background="{DynamicResource PanelBackground2}"
+                            BorderBrush="{DynamicResource PanelBackground3}" BorderThickness="1"
+                            ToolTip.Tip="Click to pick an icon for this track">
+                        <controls:RpgIcon IconName="{Binding TrackIcon}"
+                                          FontSize="22"
+                                          Foreground="{DynamicResource PrimaryAccent}"
+                                          Width="26" Height="26" />
+                    </Button>
+                    <TextBlock Text="{Binding TrackIcon, FallbackValue='(no icon)'}"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondary}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Volume:" />
+                <Slider Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding TrackVolume}" />
+                <TextBlock Grid.Row="2" Grid.Column="2"
+                           Text="{Binding TrackVolume, Converter={x:Static c:VolumePercentConverter.Instance}}"
+                           Width="50" TextAlignment="Right" VerticalAlignment="Center" />
+
+                <!-- Start/End Point Range Selection -->
+                <TextBlock Grid.Row="3" Grid.Column="0">
+                    <Run Text="Playback Range:" />
+                    <LineBreak />
+                    <Run FontSize="10" Foreground="{DynamicResource TextSecondary}"
+                         Text="{Binding PlayableLengthDisplay, StringFormat='length {0}'}" />
+                </TextBlock>
+                <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="Auto, *, Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding StartPointDisplay}" Width="60" FontWeight="Bold" Foreground="{DynamicResource PrimaryAccent}" VerticalAlignment="Center" />
+
+                    <controls:RangeSlider Grid.Column="1"
+                                         Minimum="0"
+                                         Maximum="{Binding TotalDurationSeconds}"
+                                         StartValue="{Binding StartPointSeconds}"
+                                         EndValue="{Binding EndPointSeconds}"
+                                         Margin="10,0" />
+
+                    <TextBlock Grid.Column="2" Text="{Binding EndPointDisplay}" Width="60" FontWeight="Bold" Foreground="{DynamicResource SecondaryAccent}" TextAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+                <StackPanel Grid.Row="3" Grid.Column="2" Orientation="Horizontal" Margin="10,0,0,0">
+                    <Button Content="↺" Command="{Binding ResetStartPointCommand}" ToolTip.Tip="Reset start" />
+                    <Button Content="↺" Command="{Binding ResetEndPointCommand}" ToolTip.Tip="Reset end" Margin="5,0,0,0" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Fade In (s):" />
+                <Slider Grid.Row="5" Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding FadeInSeconds}" />
+                <TextBlock Grid.Row="5" Grid.Column="2" Text="{Binding FadeInSeconds, StringFormat='{}{0:F1}s'}"
+                           Width="50" TextAlignment="Right" VerticalAlignment="Center" />
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Fade Out (s):" />
+                <Slider Grid.Row="6" Grid.Column="1" Minimum="0" Maximum="10" Value="{Binding FadeOutSeconds}" />
+                <TextBlock Grid.Row="6" Grid.Column="2" Text="{Binding FadeOutSeconds, StringFormat='{}{0:F1}s'}"
+                           Width="50" TextAlignment="Right" VerticalAlignment="Center" />
+
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="Loop Track:" />
+                <ToggleSwitch Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" IsChecked="{Binding TrackIsLooping}" />
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="Start Delay (s):" />
+                <Slider Grid.Row="8" Grid.Column="1"
+                        Minimum="0" Maximum="60" Value="{Binding StartDelaySeconds}"
+                        ToolTip.Tip="Silence before the track starts (re-applied on each loop). Useful for staggering tracks inside a preset." />
+                <TextBlock Grid.Row="8" Grid.Column="2" Text="{Binding StartDelaySeconds, StringFormat='{}{0:F1}s'}"
+                           Width="50" TextAlignment="Right" VerticalAlignment="Center" />
+
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="Auto-Trim:" />
+                <StackPanel Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="10">
+                    <Button Content="✂ Trim silence now"
+                            Command="{Binding TrimSilenceCommand}"
+                            ToolTip.Tip="Scan the audio file and set Start/End Points to skip leading and trailing silence. Runs once; you can adjust the points manually afterward." />
+                    <TextBlock Text="{Binding TrimStatus}"
+                               VerticalAlignment="Center" FontSize="11"
+                               Foreground="{DynamicResource TextSecondary}" />
+                </StackPanel>
+
+                <!-- Bus routing. Default is Music; presets / shortcuts can
+                     override this on a per-play basis. Bridges always
+                     receive the master mix regardless of bus. -->
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="Bus:" />
+                <ComboBox Grid.Row="10" Grid.Column="1" Grid.ColumnSpan="2"
+                          ItemsSource="{Binding AvailableBuses}"
+                          SelectedValue="{Binding TrackBusId, Mode=TwoWay}"
+                          SelectedValueBinding="{Binding Id}"
+                          DisplayMemberBinding="{Binding Name}"
+                          HorizontalAlignment="Stretch"
+                          ToolTip.Tip="Which audio bus this track plays on. Use SFX for short sound effects (so a ducker can listen to them) and Music for background tracks." />
+            </Grid>
+        </Border>
+
+        <!-- Plugin Extension Area -->
+        <ItemsControl ItemsSource="{Binding PluginControls}" IsVisible="{Binding !!PluginControls.Count}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="{DynamicResource PanelBackground3}" CornerRadius="8" Padding="20" Margin="0,0,0,10">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Advanced Audio Settings" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" />
+                            <ContentControl Content="{Binding}" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+            <Button Content="▶ Preview" Classes="nav" Command="{Binding PreviewCommand}" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</UserControl>

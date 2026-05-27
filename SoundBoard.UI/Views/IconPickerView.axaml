@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             xmlns:controls="using:SoundBoard.UI.Controls"
+             x:Class="SoundBoard.UI.Views.IconPickerView"
+             x:DataType="vm:IconPickerViewModel">
+
+    <Grid RowDefinitions="Auto, Auto, *, Auto" Margin="15" RowSpacing="10">
+        <TextBlock Grid.Row="0" Text="Pick an icon" FontSize="18" FontWeight="Bold"
+                   Foreground="{DynamicResource TextPrimary}" />
+
+        <TextBox Grid.Row="1" Text="{Binding SearchText}" PlaceholderText="Search icons (e.g. sword, fire, dragon)…" />
+
+        <ScrollViewer Grid.Row="2" Background="{DynamicResource PanelBackground1}">
+            <ItemsControl ItemsSource="{Binding FilteredIcons}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Width="56" Height="56" Margin="3" Padding="0"
+                                Background="Transparent"
+                                BorderBrush="{DynamicResource PanelBackground3}" BorderThickness="1"
+                                ToolTip.Tip="{Binding}"
+                                Command="{Binding $parent[ItemsControl].((vm:IconPickerViewModel)DataContext).PickCommand}"
+                                CommandParameter="{Binding}">
+                            <controls:RpgIcon IconName="{Binding}"
+                                              FontSize="26"
+                                              Foreground="{DynamicResource TextPrimary}" />
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+            <Button Content="No icon" Command="{Binding ClearCommand}" />
+            <Button Content="Cancel" Command="{Binding CancelCommand}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

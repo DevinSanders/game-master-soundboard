@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SoundBoard.PluginApi\SoundBoard.PluginApi.csproj" />
+    <InternalsVisibleTo Include="SoundBoard.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Discord.Net / Discord.Net.Dave / libdave moved into the
+         gmsb-bridge-discord plugin. Users who don't run a voice bridge
+         no longer pay ~25 MB of native libdave binaries (5 RIDs)
+         they'd never load. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
+    <!-- OpenAL Soft is the audio output backend on both macOS and Linux
+         — one library across the Unix-family platforms, one mental model,
+         one set of tests. Replaces miniaudio (Miniaudio-CS), which:
+           - Had a struct-binding bug on macOS where playback.channels read
+             as 0, producing perfect-cadence silence (see git history for
+             the channels=0 fix that surfaced this).
+           - Heap-corrupted on bleeding-edge Linux userspace
+             (Ubuntu 25.10 + libpulsecommon-17, confirmed via core dump).
+         OpenAL Soft has 20 years of hardened backend selection (CoreAudio
+         on Mac; PipeWire → PulseAudio → ALSA → JACK on Linux) with each
+         backend sandboxed against the others.
+
+         The MANAGED Silk.NET.OpenAL ref is unconditional so OpenALBackend.cs
+         compiles on every platform — the platform selector inside
+         LocalAudioPlayer is what gates instantiation. The NATIVE
+         Soft.Native ref is restricted to macOS + Linux so Windows builds
+         don't pay the ~1 MB of bundled libopenal binaries they'd never
+         load (Windows uses NAudio WASAPI, not OpenAL).
+
+         Runtime escape hatch: ALSOFT_DRIVERS=alsa forces OpenAL Soft to
+         skip PulseAudio entirely if a future Linux distro breaks libpulse
+         for OpenAL too — no host code change needed. -->
+    <PackageReference Include="Silk.NET.OpenAL" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.OpenAL.Soft.Native" Version="1.21.1.1"
+                      Condition="!$([MSBuild]::IsOSPlatform('Windows'))" />
+    <PackageReference Include="NAudio" Version="2.3.0" />
+    <PackageReference Include="NAudio.Core" Version="2.3.0" />
+    <PackageReference Include="NAudio.Wasapi" Version="2.3.0" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
+    <PackageReference Include="NAudio.WinMM" Version="2.3.0" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
+    <!-- Used by PluginInstallerService to peek at plugin DLLs from a
+         dropped .zip WITHOUT loading them into the runtime — we just
+         need to know whether the entry-point implements IThemePlugin
+         so we can route the extraction to Themes/ vs Plugins/. -->
+    <PackageReference Include="System.Reflection.MetadataLoadContext" Version="9.0.0" />
+    <!-- Codec rule: only file types NAudio's own libraries can decode
+         stay built-in (currently just .wav via WaveFileReader). Anything
+         that needs a third-party decoder (MP3 / OGG / FLAC / Opus / ...)
+         ships as a separate codec plugin in its own sibling repo
+         (gmsb-codec-mp3, gmsb-codec-ogg, ...). This keeps Core
+         minimal and exercises the IAudioCodecPlugin extension point as
+         the canonical way to add new formats. See the SoundBoard.Core
+         README for the full rule. -->
+  </ItemGroup>
+
+</Project>

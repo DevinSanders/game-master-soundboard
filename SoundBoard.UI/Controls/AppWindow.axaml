@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SoundBoard.UI.Controls.AppWindow"
+        Background="{DynamicResource ContentBackground}"
+        Icon="avares://SoundBoard.UI/Assets/app-icon.ico"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="-1">
+
+    <Grid RowDefinitions="40, *">
+        <!-- Custom title bar -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SidebarBackground}"
+                PointerPressed="OnTitleBarPointerPressed">
+            <!-- Platform-aware margin: macOS gets a wider left inset to
+                 clear the OS traffic-light buttons. See App.axaml. -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="{DynamicResource TitleBarContentMargin}">
+                <Image Source="avares://SoundBoard.UI/Assets/app-icon.ico"
+                       Width="20" Height="20" Margin="0,0,10,0" />
+                <TextBlock Text="{Binding $parent[Window].Title}"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextSecondary}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <!-- Injected content. Views that need scrolling on overflow own their
+             own ScrollViewer (TrackEditor, SettingsView, AboutView, etc.) —
+             wrapping at the window level would break the fill-the-window
+             "Auto, *, Auto" Grid layouts that PresetEditor / Mixer / Playlists
+             rely on (the * row would collapse to its content height inside an
+             unconstrained ScrollViewer). -->
+        <ContentPresenter Grid.Row="1" Name="PART_ShellContent" />
+    </Grid>
+</Window>

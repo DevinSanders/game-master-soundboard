@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             x:Class="SoundBoard.UI.Views.PresetsView"
+             x:DataType="vm:PresetsViewModel">
+
+    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, *, Auto" Margin="20">
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="Presets" FontSize="24" FontWeight="Bold"
+                   Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,20" />
+
+        <Border Grid.Row="1" Grid.ColumnSpan="2"
+                Background="{DynamicResource PanelBackground1}" CornerRadius="8" Padding="10">
+            <ListBox x:Name="PresetList" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}"
+                     Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid ColumnDefinitions="*, Auto, Auto, Auto" Margin="0,4">
+                            <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                       FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding Tracks.Count, StringFormat='{}{0} track(s)'}"
+                                       Margin="10,0" Foreground="{DynamicResource TextSecondary}"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="2" Content="▶" FontSize="11" Padding="10,4"
+                                    Margin="0,0,4,0" ToolTip.Tip="Play this preset"
+                                    Command="{Binding $parent[ListBox].((vm:PresetsViewModel)DataContext).PlayPresetCommand}"
+                                    CommandParameter="{Binding}" />
+                            <Button Grid.Column="3" Content="■" FontSize="11" Padding="10,4"
+                                    Background="{DynamicResource DangerBackground}" Foreground="{DynamicResource DangerForeground}"
+                                    ToolTip.Tip="Stop this preset"
+                                    Command="{Binding $parent[ListBox].((vm:PresetsViewModel)DataContext).StopPresetCommand}"
+                                    CommandParameter="{Binding}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Spacing="10" Margin="0,15,0,0">
+            <Button Content="+ New Preset" Classes="primary" Command="{Binding CreatePresetCommand}" />
+            <Button Content="✏ Edit" Command="{Binding OpenSelectedCommand}"
+                    IsEnabled="{Binding SelectedPreset, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <Button Content="🗑 Delete" Command="{Binding DeletePresetCommand}"
+                    CommandParameter="{Binding SelectedPreset}"
+                    IsEnabled="{Binding SelectedPreset, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    Background="{DynamicResource DangerBackground}" Foreground="{DynamicResource DangerForeground}" />
+        </StackPanel>
+        <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
+                   Text="Drag a preset onto the soundboard or a playlist."
+                   FontSize="11" Foreground="{DynamicResource TextSecondary}"
+                   HorizontalAlignment="Right" Margin="0,15,0,0" VerticalAlignment="Center" />
+    </Grid>
+</UserControl>

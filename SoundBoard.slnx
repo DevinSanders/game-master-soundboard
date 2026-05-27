@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="SoundBoard.PluginApi/SoundBoard.PluginApi.csproj" />
+  <Project Path="SoundBoard.Core/SoundBoard.Core.csproj" />
+  <Project Path="SoundBoard.Desktop/SoundBoard.Desktop.csproj" />
+  <Project Path="SoundBoard.UI/SoundBoard.UI.csproj" />
+  <Project Path="SoundBoard.Tests/SoundBoard.Tests.csproj" />
+</Solution>
