@@ -46,7 +46,7 @@ jobs:
             archive: zip
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up .NET 10
         uses: actions/setup-dotnet@v5
@@ -222,7 +222,7 @@ jobs:
           ls -la staged
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.rid }}
           path: staged/
@@ -237,7 +237,7 @@ jobs:
     needs: publish
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download Windows artifacts
         uses: actions/download-artifact@v8
@@ -295,7 +295,7 @@ jobs:
             --outputdirectory chocolatey-out
 
       - name: Upload chocolatey nupkg
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: chocolatey
           path: chocolatey-out/*.nupkg
@@ -313,7 +313,7 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download macOS arm64 artifact
         uses: actions/download-artifact@v8
@@ -378,7 +378,7 @@ jobs:
           fi
 
       - name: Upload Homebrew Cask formula
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: homebrew
           path: homebrew-out/gmsoundboard.rb
