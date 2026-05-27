@@ -7,6 +7,12 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    ignore:
+      # FluentAssertions 7.x is the last free-for-OSS release; 8.x switched to
+      # a paid Xceed commercial license. Stay on the 7.x line and stop
+      # dependabot from re-proposing the 8.x major bump.
+      - dependency-name: "FluentAssertions"
+        versions: [">=8.0.0"]
     groups:
       avalonia:
         patterns:
