@@ -15,6 +15,14 @@ namespace SoundBoard.Tests.Audio;
 /// </summary>
 public class MasterMixerDeferredDisposalTests
 {
+    /// <summary>Upper bound for "eventually disposed" assertions. The actual
+    /// dispose runs on <see cref="MasterMixer"/>'s background drainer Task,
+    /// so the wait must tolerate scheduling jitter on a loaded CI runner
+    /// (2-core Windows agents running the suite in parallel can starve a
+    /// continuation for well over a second). SpinUntil returns the instant
+    /// the condition holds, so a generous budget never slows a green run.</summary>
+    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(15);
+
     private sealed class DisposalProbe : IDisposable
     {
         public int DisposeCallCount;
@@ -55,7 +63,7 @@ public class MasterMixerDeferredDisposalTests
         // Cycle 3: now eligible. Drainer runs asynchronously; give it a
         // moment.
         mixer.Read(buf, 0, 256);
-        SpinWait.SpinUntil(() => probe.DisposeCallCount > 0, TimeSpan.FromSeconds(2))
+        SpinWait.SpinUntil(() => probe.DisposeCallCount > 0, DrainTimeout)
             .Should().BeTrue("disposal must happen on the drainer thread after the second Read cycle");
         probe.DisposeCallCount.Should().Be(1);
     }
@@ -74,7 +82,7 @@ public class MasterMixerDeferredDisposalTests
         mixer.Read(buf, 0, 128);
         mixer.Read(buf, 0, 128);
 
-        SpinWait.SpinUntil(() => probes.All(p => p.DisposeCallCount == 1), TimeSpan.FromSeconds(2))
+        SpinWait.SpinUntil(() => probes.All(p => p.DisposeCallCount == 1), DrainTimeout)
             .Should().BeTrue();
         probes.Should().AllSatisfy(p => p.DisposeCallCount.Should().Be(1));
     }
@@ -101,7 +109,7 @@ public class MasterMixerDeferredDisposalTests
         // must catch and swallow rather than propagate to the Task.
         mixer.FlushPendingDisposalsForTest();
 
-        SpinWait.SpinUntil(() => thrower.DisposeCalls > 0, TimeSpan.FromSeconds(2))
+        SpinWait.SpinUntil(() => thrower.DisposeCalls > 0, DrainTimeout)
             .Should().BeTrue("the drainer must reach and invoke the disposable");
 
         // The drainer's Task should still be alive — i.e., not faulted by
@@ -110,7 +118,7 @@ public class MasterMixerDeferredDisposalTests
         var probe = new DisposalProbe();
         mixer.DeferDispose(probe);
         mixer.FlushPendingDisposalsForTest();
-        SpinWait.SpinUntil(() => probe.DisposeCallCount > 0, TimeSpan.FromSeconds(2))
+        SpinWait.SpinUntil(() => probe.DisposeCallCount > 0, DrainTimeout)
             .Should().BeTrue("the drainer must keep running after a throwing dispose");
     }
 
@@ -140,7 +148,7 @@ public class MasterMixerDeferredDisposalTests
         mixer.Read(buf, 0, 128);
         mixer.Read(buf, 0, 128);
 
-        SpinWait.SpinUntil(() => probe.DisposeCallCount == 1, TimeSpan.FromSeconds(2))
+        SpinWait.SpinUntil(() => probe.DisposeCallCount == 1, DrainTimeout)
             .Should().BeTrue();
     }
 
