@@ -22,7 +22,7 @@ name: SDK Release (NuGet)
 # Auth: Trusted Publishing (OIDC) — NO stored API-key secret. One-time setup
 # on nuget.org (account → Trusted Publishing) before the first run: add a
 # policy for nuget.org user `dsand64`, GitHub owner/repo
-# `DevinSanders/Game-Master-Sound-Board`, this workflow file
+# `DevinSanders/game-master-soundboard`, this workflow file
 # (`.github/workflows/sdk-release.yml`), package `SoundBoard.PluginApi`. The
 # `NuGet/login` step then exchanges this run's OIDC token for a short-lived
 # key. Note: the package id must already be owned by `dsand64` — if this is a

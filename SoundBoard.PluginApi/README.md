@@ -1,6 +1,6 @@
 # SoundBoard.PluginApi
 
-The plugin & theme SDK for [Game Master Sound Board](https://github.com/DevinSanders/Game-Master-Sound-Board) — a cross-platform soundboard for tabletop RPG sessions.
+The plugin & theme SDK for [Game Master Sound Board](https://github.com/DevinSanders/game-master-soundboard) — a cross-platform soundboard for tabletop RPG sessions.
 
 This is the **only** assembly a plugin references. It's intentionally tiny: it depends on `NAudio.Core` alone (for `ISampleProvider` / `WaveStream` in the audio contracts) — no Avalonia, no EF Core, no host internals. That keeps the surface a plugin compiles against stable and small.
 
@@ -44,9 +44,9 @@ Each plugin ships a `plugin.json` manifest (`publisher`, `id`, `name`, `version`
 
 ## Documentation
 
-- **[Plugin developer guide](https://github.com/DevinSanders/Game-Master-Sound-Board/blob/main/docs/PLUGIN-DEV.md)** — full walkthrough: csproj setup, manifest, the Stream-handoff codec contract, sidechain, bridges, and packaging.
-- **[Plugin catalog](https://github.com/DevinSanders/Game-Master-Sound-Board/blob/main/docs/PLUGINS.md)** — the first-party codec / sampler / bridge / theme plugins, each in its own sibling repo.
+- **[Plugin developer guide](https://github.com/DevinSanders/game-master-soundboard/blob/main/docs/PLUGIN-DEV.md)** — full walkthrough: csproj setup, manifest, the Stream-handoff codec contract, sidechain, bridges, and packaging.
+- **[Plugin catalog](https://github.com/DevinSanders/game-master-soundboard/blob/main/docs/PLUGINS.md)** — the first-party codec / sampler / bridge / theme plugins, each in its own sibling repo.
 
 ## Licensing
 
-The host application is GPL-3.0-only, but a [written exception](https://github.com/DevinSanders/Game-Master-Sound-Board/blob/main/LICENSE-EXCEPTION) lets any plugin that interacts with the host **only** through the interfaces in this SDK be licensed however its author wants. Build your plugin under MIT, Apache, a commercial license — whatever you like.
+The host application is GPL-3.0-only, but a [written exception](https://github.com/DevinSanders/game-master-soundboard/blob/main/LICENSE-EXCEPTION) lets any plugin that interacts with the host **only** through the interfaces in this SDK be licensed however its author wants. Build your plugin under MIT, Apache, a commercial license — whatever you like.
