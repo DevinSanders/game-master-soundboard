@@ -44,8 +44,8 @@
          Runtime escape hatch: ALSOFT_DRIVERS=alsa forces OpenAL Soft to
          skip PulseAudio entirely if a future Linux distro breaks libpulse
          for OpenAL too — no host code change needed. -->
-    <PackageReference Include="Silk.NET.OpenAL" Version="2.22.0" />
-    <PackageReference Include="Silk.NET.OpenAL.Soft.Native" Version="1.21.1.1"
+    <PackageReference Include="Silk.NET.OpenAL" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1"
                       Condition="!$([MSBuild]::IsOSPlatform('Windows'))" />
     <PackageReference Include="NAudio" Version="2.3.0" />
     <PackageReference Include="NAudio.Core" Version="2.3.0" />
