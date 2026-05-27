@@ -57,7 +57,7 @@ public enum BridgeStatus
 /// surfaces other channel members as another mixer strip) calls
 /// <see cref="IBridgeHost.PushInboundPcm"/> on the
 /// <see cref="IBridgeHost"/> handed to it at
-/// <see cref="IPlugin.Initialize"/>. The host wraps that callback as a virtual
+/// <see cref="CreateSettingsControl"/>. The host wraps that callback as a virtual
 /// <c>ISampleProvider</c> added to the mixer.</para>
 ///
 /// <para><b>Borrowed codecs.</b> A bridge that needs Opus / AAC / …
