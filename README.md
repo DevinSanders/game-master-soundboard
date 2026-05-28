@@ -92,6 +92,24 @@ gmsound://playlist/dungeon-crawl/next
 
 The app has a URI builder (Tools → URI Builder) that produces these for you, including Markdown and HTML snippets.
 
+## About this project
+
+Game Master Sound Board is a passion project — built first for my own table, then polished and shared with the world. It's developed and maintained by a single person in spare time, so a few honest expectations up front:
+
+- **Bug reports first, features as time allows.** Issues that break workflow get top priority and I try to turn them around quickly. Feature requests are read and considered, but may sit in the backlog longer than you'd like.
+- **Binaries are best-effort.** Pre-built installers exist for Windows, macOS (Intel + Apple Silicon), and Linux (x64 + arm64), but I don't have the hardware or time to test every OS / desktop-environment / distro combination. If yours misbehaves, please file an issue — a `--debug` log helps a great deal.
+- **AI-assisted development.** Parts of this project's source, tests, and documentation were drafted with the help of AI tools and then reviewed, edited, and integrated by the author. The project is human-designed and human-maintained; AI is one of the tools used to build it.
+- **Contributions are welcome.** PRs, fixes, and improvements are genuinely appreciated — see [CONTRIBUTING.md](CONTRIBUTING.md) for setup and the easy-to-miss footguns specific to this codebase.
+
+### Support the project
+
+If the app earned a place at your table and you'd like to show some appreciation, two ways — both optional, the host app is and remains free under GPL v3:
+
+[![Buy me a book](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20book&emoji=%F0%9F%93%96&slug=dsand64&button_colour=2563EB&font_colour=FFFFFF&font_family=Cookie&outline_colour=3B82F6&coffee_colour=FFFFFF)](https://www.buymeacoffee.com/dsand64)
+
+- **Buy me a book** via [Buy Me a Coffee](https://www.buymeacoffee.com/dsand64) — small one-off tip, no commitment.
+- **Pick up a premium plugin on itch.io.** A pay-what-you-want storefront is in the works at [itch.io/profile/dsand64](https://itch.io/profile/dsand64) *(placeholder — individual plugin pages and bundles will be linked here as they go live)*. The host app and the core plugins stay free; premium codecs, samplers, and theme packs help fund the project.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and the easy-to-miss footguns specific to this codebase.
