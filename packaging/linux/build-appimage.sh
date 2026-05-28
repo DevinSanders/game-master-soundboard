@@ -69,7 +69,12 @@ EOF
 chmod +x "$APPDIR/AppRun"
 
 # Build the AppImage.
+# --appimage-extract-and-run makes appimagetool extract itself instead of
+# mounting via FUSE. Ubuntu 24.04+ runners (the GitHub Actions default since
+# 2025) no longer ship libfuse2, so without this flag the tool fails at
+# launch with "dlopen(): error loading libfuse.so.2". Extract-mode is slightly
+# slower per invocation but has no runtime dependency on FUSE.
 OUTPUT_FILE="$OUTPUT_DIR/GameMasterSoundBoard-$VERSION-x86_64.AppImage"
-ARCH=x86_64 appimagetool --no-appstream "$APPDIR" "$OUTPUT_FILE"
+ARCH=x86_64 appimagetool --appimage-extract-and-run --no-appstream "$APPDIR" "$OUTPUT_FILE"
 
 echo "Done: $OUTPUT_FILE"
