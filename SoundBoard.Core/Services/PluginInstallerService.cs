@@ -420,22 +420,24 @@ public sealed class PluginInstallerService : IPluginInstallerService
 
         var candidatePaths = new List<string>();
         candidatePaths.AddRange(Directory.GetFiles(pluginFolder, "*.dll", SearchOption.AllDirectories));
-        var pluginApiPath = typeof(IPlugin).Assembly.Location;
-        if (!string.IsNullOrEmpty(pluginApiPath))
-        {
-            candidatePaths.Add(pluginApiPath);
-            // Also probe every DLL sitting next to SoundBoard.PluginApi.dll
-            // in the host's output directory. Plugins that ExcludeAssets="runtime"
-            // on shared deps (NAudio.Core, Avalonia, etc.) intentionally omit
-            // those DLLs from their own zip — they rely on the host's copies
-            // being there at runtime. The metadata validator has to see those
-            // copies too, otherwise it fails with "Could not find assembly
-            // 'NAudio.Core, Version=2.3.0.0, ...'" even though the plugin is
-            // perfectly valid against the deployed host.
-            var hostBinDir = Path.GetDirectoryName(pluginApiPath);
-            if (!string.IsNullOrEmpty(hostBinDir) && Directory.Exists(hostBinDir))
-                candidatePaths.AddRange(Directory.GetFiles(hostBinDir, "*.dll"));
-        }
+        // Probe every DLL sitting in the host's runtime directory. Plugins
+        // that ExcludeAssets="runtime" on shared deps (NAudio.Core, Avalonia,
+        // SoundBoard.PluginApi, etc.) intentionally omit those DLLs from their
+        // own zip — they rely on the host's copies being there at runtime.
+        // The metadata validator has to see those copies too, otherwise it
+        // fails with "Could not find assembly 'NAudio.Core, Version=2.3.0.0,
+        // ...'" even though the plugin is perfectly valid against the deployed
+        // host. We use AppContext.BaseDirectory rather than
+        // typeof(IPlugin).Assembly.Location because the latter returns an
+        // empty string for assemblies embedded in a single-file published
+        // app (IL3000), and the release publishes with
+        // PublishSingleFile=true + IncludeNativeLibrariesForSelfExtract=true.
+        // For both single-file and multi-file builds, BaseDirectory is the
+        // host's runtime directory where SoundBoard.PluginApi.dll and its
+        // siblings live.
+        var hostBinDir = AppContext.BaseDirectory;
+        if (!string.IsNullOrEmpty(hostBinDir) && Directory.Exists(hostBinDir))
+            candidatePaths.AddRange(Directory.GetFiles(hostBinDir, "*.dll"));
         var runtimeDir = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory();
         if (Directory.Exists(runtimeDir))
             candidatePaths.AddRange(Directory.GetFiles(runtimeDir, "*.dll"));
