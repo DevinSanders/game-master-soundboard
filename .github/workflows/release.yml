@@ -360,9 +360,15 @@ jobs:
           SHA_X64=$(sha256sum "$DMG_X64" | awk '{print $1}')
 
           mkdir -p homebrew-out
-          sed -e "s|\$VERSION\$|${VERSION}|g" \
-              -e "s|\$SHA256_ARM64\$|${SHA_ARM64}|g" \
-              -e "s|\$SHA256_X64\$|${SHA_X64}|g" \
+          # Use a `[$]` character class to make the dollar sign literal in the
+          # sed regex. A `\$` inside a bash double-quoted string un-escapes to
+          # `$`, which sed then treats as the end-of-line anchor — so the
+          # trailing `$` of `$VERSION$` never matched (the placeholder is
+          # followed by `"` in the .rb file, not EOL). `[$]` is a one-character
+          # class containing only `$`, which is unambiguous everywhere.
+          sed -e "s|[\$]VERSION[\$]|${VERSION}|g" \
+              -e "s|[\$]SHA256_ARM64[\$]|${SHA_ARM64}|g" \
+              -e "s|[\$]SHA256_X64[\$]|${SHA_X64}|g" \
               packaging/macos/homebrew/gmsoundboard.rb \
               > homebrew-out/gmsoundboard.rb
 

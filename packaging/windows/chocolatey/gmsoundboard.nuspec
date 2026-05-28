@@ -5,14 +5,20 @@
   This package downloads the Inno Setup installer from a tagged GitHub Release
   and runs it silently. The CI workflow rewrites these placeholders before
   packing:
-    - $VERSION$ in THIS nuspec (the <releaseNotes> URL — `choco pack --version`
+    - $VERSION$ in THIS nuspec (the <releaseNotes> URL — `choco pack -version`
       only overrides the <version> element, not arbitrary $VERSION$ tokens
       elsewhere in the file)
     - $DOWNLOAD_URL$, $CHECKSUM$ in tools/chocolateyinstall.ps1
 
+  Note: choco CLI flags are written with a single leading dash inside this
+  comment block (e.g. `-version`, `-source`). XML forbids two consecutive
+  dashes inside a comment, so the double-dash form would break the parser.
+  Choco's CLI accepts either form at the command line — only this comment
+  block has the restriction.
+
   Building locally:
-    choco pack gmsoundboard.nuspec --version 1.2.3
-    choco install gmsoundboard --source . -y    (smoke test)
+    choco pack gmsoundboard.nuspec -version 1.2.3
+    choco install gmsoundboard -source . -y    (smoke test)
 
   Publishing:
     Pushing to the community feed (https://community.chocolatey.org/) requires
