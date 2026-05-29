@@ -30,7 +30,29 @@ public partial class AboutViewModel : ViewModelBase
     }
 
     public string AppName => "Game Master Sound Board";
-    public string AppVersion => Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "1.0.0";
+
+    // Read AssemblyInformationalVersion, NOT AssemblyVersion. The release
+    // workflow passes -p:Version=<tag-derived semver>, which MSBuild splits:
+    //   • AssemblyVersion / FileVersion: strict Major.Minor.Build.Revision
+    //     (numeric only — prerelease suffixes like "-beta.1" get stripped,
+    //     so a v1.0.0-beta.1 tag produces AssemblyVersion="1.0.0.0").
+    //   • InformationalVersion: free-form, preserves the full semver
+    //     including the "-beta.1" / "-rc.2" / "+sha" suffixes.
+    // SourceLink may also append "+<git-sha>" to InformationalVersion —
+    // strip everything from the `+` onward so the About page shows the
+    // user-facing semver only (e.g. "1.0.0-beta.1" not "1.0.0-beta.1+abcd").
+    public string AppVersion
+    {
+        get
+        {
+            var info = Assembly.GetEntryAssembly()
+                ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion;
+            if (string.IsNullOrEmpty(info)) return "1.0.0";
+            var plus = info.IndexOf('+');
+            return plus >= 0 ? info[..plus] : info;
+        }
+    }
     public string ReleaseDate => "May 16, 2026";
     public string Author => "Devin Sanders";
     public string AuthorEmail => "devin.sanders64+gmsound@gmail.com";
