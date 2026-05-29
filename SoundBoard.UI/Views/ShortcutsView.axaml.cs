@@ -142,6 +142,27 @@ public partial class ShortcutsView : UserControl
         // don't reach here anymore (ghost mode bypasses DragDrop).
     }
 
+    // ── Page Tab Scroller ────────────────────────────────────
+
+    // Route vertical mouse-wheel input over the page-tabs scroller to
+    // horizontal scrolling. The strip is horizontal-only (no vertical
+    // scroll), so the wheel would otherwise be unusable — and there's no
+    // natural horizontal-wheel hardware on most desks. Trackpads with
+    // genuine horizontal scroll still route through the scroller's normal
+    // path because their delta arrives as Delta.X, which we leave alone.
+    private void OnPageTabsWheel(object? sender, PointerWheelEventArgs e)
+    {
+        if (sender is not ScrollViewer sv) return;
+        var dy = e.Delta.Y;
+        if (dy == 0) return;
+        // One "notch" of the wheel ≈ 1 unit. Multiply by a tab-ish width so
+        // each notch moves about a tab's worth instead of a pixel.
+        sv.Offset = new Avalonia.Vector(
+            System.Math.Clamp(sv.Offset.X - dy * 60, 0, System.Math.Max(0, sv.Extent.Width - sv.Viewport.Width)),
+            sv.Offset.Y);
+        e.Handled = true;
+    }
+
     // ── Page Tab Context Menu ────────────────────────────────
 
     private async void OnPageTabDoubleTapped(object? sender, TappedEventArgs e)

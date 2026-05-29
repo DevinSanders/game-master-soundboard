@@ -31,9 +31,20 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto, *">
-        <!-- Row 0: Page Tabs + Page Management -->
+        <!-- Row 0: Page Tabs (scrollable) + Page Management actions.
+             The TabStrip is wrapped in a horizontal ScrollViewer so a long
+             list of pages clips at the column boundary instead of running
+             under the action buttons, and a scrollbar appears when the tabs
+             don't fit. The "+" (Add Page) and "Pop Out" buttons share the
+             right-side column so they stay anchored and visible regardless
+             of how many tabs are present, scrolled, or selected.
+             Mouse-wheel-to-horizontal-scroll is wired in code-behind. -->
         <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="0,0,0,15">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
+            <ScrollViewer Grid.Column="0"
+                          x:Name="PageTabsScroller"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled"
+                          PointerWheelChanged="OnPageTabsWheel">
                 <TabStrip ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}">
                     <TabStrip.ItemTemplate>
                         <DataTemplate>
@@ -49,14 +60,15 @@
                         </DataTemplate>
                     </TabStrip.ItemTemplate>
                 </TabStrip>
+            </ScrollViewer>
 
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="10,0,0,0">
                 <!-- Add Page Button -->
                 <Button Content="+" FontSize="18" FontWeight="Bold" Padding="10,3"
                         Background="{DynamicResource SuccessBackground}" Foreground="{DynamicResource SuccessForeground}" CornerRadius="6"
                         ToolTip.Tip="Add new page" Command="{Binding AddPageCommand}" />
+                <Button Content="Pop Out 🗗" Command="{Binding PopOutCommand}" Classes="primary" />
             </StackPanel>
-
-            <Button Grid.Column="1" Content="Pop Out 🗗" Command="{Binding PopOutCommand}" Classes="primary" />
         </Grid>
 
         <!-- Row 1: Dynamic Grid of Shortcut Buttons -->
