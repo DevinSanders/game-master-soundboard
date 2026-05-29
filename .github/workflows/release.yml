@@ -68,13 +68,25 @@ jobs:
 
       - name: Publish self-contained binary
         shell: bash
+        # IncludeAllContentForSelfExtract=true (rather than the more common
+        # IncludeNativeLibrariesForSelfExtract) is required because the
+        # plugin installer validates entry DLLs via MetadataLoadContext,
+        # which needs `System.Private.CoreLib.dll` and the rest of the
+        # framework available on disk. With native-only extract, managed
+        # assemblies stay in the bundle and the validator fails with
+        # "Could not find core assembly". With full extract, every DLL the
+        # runtime knows about lands in AppContext.BaseDirectory on first
+        # launch, so the validator's Directory.GetFiles probe sees them.
+        # Cost: one-time first-run extraction (~tens of seconds) and a
+        # populated extraction dir under %TEMP%/.net/ — acceptable for a
+        # desktop app with reflection-driven plugin loading.
         run: |
           dotnet publish SoundBoard.Desktop/SoundBoard.Desktop.csproj \
             --configuration Release \
             --runtime ${{ matrix.rid }} \
             --self-contained true \
             -p:PublishSingleFile=true \
-            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:IncludeAllContentForSelfExtract=true \
             -p:Version=${{ steps.version.outputs.version }} \
             --output publish/${{ matrix.rid }}
 
