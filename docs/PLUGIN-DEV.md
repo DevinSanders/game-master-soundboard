@@ -45,10 +45,10 @@ Until the package is published, reference it directly from this repo:
 
 Every plugin folder must contain a `plugin.json` at its root. The
 manifest is the host's source of truth for identity, presentation, and
-which DLL to load — there are no longer any folder-name or zip-name
-conventions to satisfy. A folder without a manifest is skipped by the
-runtime scanner with a warning; a zip without one is rejected by the
-installer with a clear error.
+which DLL to load — folder names and zip names carry no meaning to the
+scanner. A folder without a manifest is skipped by the runtime scanner
+with a warning; a zip without one is rejected by the installer with a
+clear error.
 
 ```json
 {
@@ -194,9 +194,7 @@ Avalonia's `DynamicResource` lookup regardless of the active variant, and
 it derives the Avalonia chrome variant — used only for un-themed Fluent
 controls like scrollbars, combo-box popups and focus rings — from your
 theme's background luminance. You declare the colours; the host figures
-out light vs dark on its own. (Legacy themes that still ship explicit
-`Dark`/`Light` `ThemeDictionaries` blocks continue to load, but that form
-is no longer recommended.)
+out light vs dark on its own.
 
 The host references all theme-sensitive colors via `DynamicResource`, so
 once your overrides land the change propagates without touching any

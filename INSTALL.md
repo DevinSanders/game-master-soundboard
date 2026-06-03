@@ -143,7 +143,7 @@ Audio output goes through OpenAL Soft, which picks a backend at runtime: **PipeW
 
 ## Discord output (optional plugin)
 
-Discord output is no longer baked into the host — it lives in a separate plugin so the ~25 MB of Discord native libraries only ship if you actually want voice-channel streaming. To install:
+Discord output ships as a separate plugin so the ~25 MB of Discord native libraries only land on your machine if you actually want voice-channel streaming. To install:
 
 1. Grab the latest release zip from the [gmsb-bridge-discord releases page](https://github.com/DevinSanders/gmsb-bridge-discord/releases).
 2. In Game Master Sound Board, open **Settings → Plugin Manager** and drag the zip onto the drop zone.
