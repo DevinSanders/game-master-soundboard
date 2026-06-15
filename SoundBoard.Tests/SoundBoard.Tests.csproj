@@ -28,7 +28,7 @@
     <PackageReference Include="NSubstitute" Version="5.3.0" />
 
     <!-- SQLite in-memory for EF tests. -->
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
 
     <!-- Audio fakes need ISampleProvider. -->
