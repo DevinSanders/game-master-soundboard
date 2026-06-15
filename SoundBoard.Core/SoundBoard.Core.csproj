@@ -55,7 +55,7 @@
          dropped .zip WITHOUT loading them into the runtime — we just
          need to know whether the entry-point implements IThemePlugin
          so we can route the extraction to Themes/ vs Plugins/. -->
-    <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.8" />
+    <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.9" />
     <!-- Codec rule: only file types NAudio's own libraries can decode
          stay built-in (currently just .wav via WaveFileReader). Anything
          that needs a third-party decoder (MP3 / OGG / FLAC / Opus / ...)
