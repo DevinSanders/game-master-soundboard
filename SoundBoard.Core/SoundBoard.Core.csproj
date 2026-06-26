@@ -17,11 +17,11 @@
          gmsb-bridge-discord plugin. Users who don't run a voice bridge
          no longer pay ~25 MB of native libdave binaries (5 RIDs)
          they'd never load. -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
     <!-- OpenAL Soft is the audio output backend on both macOS and Linux
          — one library across the Unix-family platforms, one mental model,
          one set of tests. Replaces miniaudio (Miniaudio-CS), which:
