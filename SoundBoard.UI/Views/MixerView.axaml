@@ -30,16 +30,27 @@
                                 Width="350" ToolTip.Tip="{Binding Name}"
                                 IsVisible="{Binding !IsPlaylistOwned}">
                             <Grid ColumnDefinitions="*, Auto, 50" RowDefinitions="Auto, Auto, Auto, Auto">
-                                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                                    <controls:RpgIcon IconName="{Binding Track.Icon}"
+                                <!-- Icon docks left at its natural width; the
+                                     MarqueeTextBlock fills the remaining column-0
+                                     space. The marquee scrolls horizontally only
+                                     when the name overflows its slot (long TTA
+                                     names like "Abandoned Chapel (Music Only)"),
+                                     and degrades to a normal static label when the
+                                     name fits — same DockPanel constraint that
+                                     fixed the prior overlap, now with a polished
+                                     read-the-whole-name behavior on top. -->
+                                <DockPanel Grid.Row="0" Grid.Column="0">
+                                    <controls:RpgIcon DockPanel.Dock="Left"
+                                                      IconName="{Binding Track.Icon}"
                                                       FontSize="22"
                                                       Foreground="{DynamicResource PrimaryAccent}"
-                                                      VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding Name}"
-                                               FontWeight="Bold" FontSize="16"
-                                               Foreground="{DynamicResource TextPrimary}"
-                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                </StackPanel>
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,8,0" />
+                                    <controls:MarqueeTextBlock Text="{Binding Name}"
+                                                               FontWeight="Bold" FontSize="16"
+                                                               Foreground="{DynamicResource TextPrimary}"
+                                                               VerticalAlignment="Center" />
+                                </DockPanel>
 
                                 <controls:AudioVisualizer Grid.Row="0" Grid.Column="1"
                                                           Width="80" Height="30"
@@ -288,22 +299,31 @@
                                 Margin="5" Padding="14" Background="{DynamicResource PanelBackground1}"
                                 Width="380" ToolTip.Tip="{Binding Name}">
                             <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto" RowSpacing="6">
-                                <!-- Header: playlist name + position -->
+                                <!-- Header: playlist name + position. Same DockPanel
+                                     fix as the Track card: a horizontal StackPanel
+                                     hands its TextBlock the full natural width,
+                                     bypassing TextTrimming and letting a long
+                                     playlist name overflow into the PositionDisplay
+                                     column on the right. Docking the icon left and
+                                     letting the TextBlock fill the rest constrains
+                                     the measure so ellipses fire correctly. -->
                                 <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                                        <controls:RpgIcon IconName="{Binding Playlist.Icon, FallbackValue='ra-stack', TargetNullValue='ra-stack'}"
+                                    <DockPanel Grid.Column="0">
+                                        <controls:RpgIcon DockPanel.Dock="Left"
+                                                          IconName="{Binding Playlist.Icon, FallbackValue='ra-stack', TargetNullValue='ra-stack'}"
                                                           FontSize="22"
                                                           Foreground="{DynamicResource PrimaryAccent}"
-                                                          VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Name}"
-                                                   FontWeight="Bold" FontSize="16"
-                                                   Foreground="{DynamicResource TextPrimary}"
-                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                    </StackPanel>
+                                                          VerticalAlignment="Center"
+                                                          Margin="0,0,8,0" />
+                                        <controls:MarqueeTextBlock Text="{Binding Name}"
+                                                                   FontWeight="Bold" FontSize="16"
+                                                                   Foreground="{DynamicResource TextPrimary}"
+                                                                   VerticalAlignment="Center" />
+                                    </DockPanel>
                                     <TextBlock Grid.Column="1" Text="{Binding PositionDisplay}"
                                                FontSize="11" FontWeight="Bold"
                                                Foreground="{DynamicResource TextSecondary}"
-                                               VerticalAlignment="Center" />
+                                               VerticalAlignment="Center" Margin="8,0,0,0" />
                                 </Grid>
 
                                 <!-- Sampler badges for the playlist run. Combined
