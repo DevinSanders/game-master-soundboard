@@ -29,7 +29,7 @@
                         <RadioButton IsChecked="{Binding IsMergeMode}" GroupName="ImportMode">
                             <StackPanel Spacing="2">
                                 <TextBlock Text="Merge into the current library" FontWeight="SemiBold" />
-                                <TextBlock Text="Presets, playlists, and soundboard pages with the same name as ones being imported are replaced. Tracks are matched by file path and not duplicated."
+                                <TextBlock Text="Imported entries are folded into the current library. Tracks matching by file path always collapse onto the existing row; name collisions are reconciled per the Duplicates setting below."
                                            FontSize="11" Foreground="{DynamicResource TextSecondary}"
                                            TextWrapping="Wrap" />
                             </StackPanel>
@@ -50,6 +50,55 @@
                                    Foreground="{DynamicResource TextSecondary}" />
                         <TextBox Text="{Binding NewLibraryName}"
                                  PlaceholderText="e.g. Imported Campaign" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Duplicates -->
+            <Border Background="{DynamicResource PanelBackground1}" CornerRadius="6" Padding="14">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Duplicates" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimary}" />
+                    <TextBlock TextWrapping="Wrap" FontSize="11"
+                               Foreground="{DynamicResource TextSecondary}"
+                               Text="How to reconcile imported entries whose name matches one already in the library — or matches an earlier entry in the same import file. Applies to tracks, presets, playlists, and soundboard pages. Tracks pointing at the same audio file are always collapsed regardless of this setting." />
+
+                    <StackPanel Spacing="6">
+                        <RadioButton IsChecked="{Binding IsDuplicateSkip}" GroupName="DuplicatePolicy">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Skip duplicates" FontWeight="SemiBold" />
+                                <TextBlock Text="Keep the existing entry as-is and discard the imported duplicate. Imported presets and playlists that pointed at the discarded entry are remapped to the kept one."
+                                           FontSize="11" Foreground="{DynamicResource TextSecondary}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton IsChecked="{Binding IsDuplicateReplace}" GroupName="DuplicatePolicy">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Replace existing" FontWeight="SemiBold" />
+                                <TextBlock Text="Overwrite the existing entry with the imported one. For presets, playlists, and pages the existing row is cascade-deleted before re-insert; for tracks the existing row's fields are overwritten in place."
+                                           FontSize="11" Foreground="{DynamicResource TextSecondary}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton IsChecked="{Binding IsDuplicateAllow}" GroupName="DuplicatePolicy">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Allow duplicates" FontWeight="SemiBold" />
+                                <TextBlock Text="Insert the imported entry as a new row, renaming it to avoid the collision."
+                                           FontSize="11" Foreground="{DynamicResource TextSecondary}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6" Margin="22,4,0,0" IsVisible="{Binding IsDuplicateAllow}">
+                        <TextBlock Text="Naming style for duplicates" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondary}" />
+                        <RadioButton IsChecked="{Binding IsRenameNumeric}" GroupName="RenameStrategy"
+                                     Content="Numeric suffix — &quot;Battle&quot; → &quot;Battle (2)&quot; → &quot;Battle (3)&quot;" />
+                        <RadioButton IsChecked="{Binding IsRenameCopy}" GroupName="RenameStrategy"
+                                     Content="Copy suffix — &quot;Battle&quot; → &quot;Battle (copy)&quot; → &quot;Battle (copy 2)&quot;" />
                     </StackPanel>
                 </StackPanel>
             </Border>

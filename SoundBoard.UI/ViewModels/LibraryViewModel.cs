@@ -9,7 +9,9 @@ using SoundBoard.Core.Models;
 using SoundBoard.UI.Messages;
 using SoundBoard.UI.Services;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -38,14 +40,33 @@ public partial class LibraryViewModel : ViewModelBase, IRecipient<ShortcutPageCh
     /// user's chosen sort column.</summary>
     public ObservableCollection<Track> FilteredTracks { get; } = new();
 
-    [ObservableProperty]
-    private ObservableCollection<string> _availableTags = new();
+    /// <summary>Every detected tag facet for the current library, kept as the
+    /// source of truth. Each facet corresponds to a namespace prefix detected
+    /// across the library's tags (e.g. <c>mood:tense</c> + <c>mood:somber</c>
+    /// → "Mood" facet with two values). Tags without a namespace land in a
+    /// single miscellany facet at the end. Selecting values is multi-select
+    /// per facet with OR semantics within a facet and AND across facets.
+    /// The view binds to <see cref="VisibleFacets"/> rather than this so
+    /// only the facets the user opted into via the Filters picker render
+    /// — this keeps the library usable when there are dozens of facets.</summary>
+    public ObservableCollection<TagFacetViewModel> Facets { get; } = new();
+
+    /// <summary>Subset of <see cref="Facets"/> that the user has toggled on
+    /// in the Filters popup. Rebuilt whenever the visibility selection
+    /// changes or the source facets are re-parsed. Default is empty — the
+    /// user opts in.</summary>
+    public ObservableCollection<TagFacetViewModel> VisibleFacets { get; } = new();
+
+    /// <summary>One row per detected facet name, surfaced as a checkbox in
+    /// the Filters popup. Toggling IsVisible adds/removes the matching
+    /// facet from <see cref="VisibleFacets"/>.</summary>
+    public ObservableCollection<FacetVisibilityChoice> FacetVisibilityChoices { get; } = new();
 
     [ObservableProperty]
     private string _searchText = string.Empty;
 
     [ObservableProperty]
-    private string? _selectedTag;
+    private bool _hasActiveFilters;
 
     [ObservableProperty]
     private Track? _selectedTrack;
@@ -111,13 +132,12 @@ public partial class LibraryViewModel : ViewModelBase, IRecipient<ShortcutPageCh
         // DataGrid bound to Tracks preserves its sort/selection.
         Tracks.Clear();
         foreach (var t in tracks) Tracks.Add(t);
-        UpdateAvailableTags();
+        RebuildFacets();
         UpdateFilters();
         PopulateMissingDurations();
     }
 
     partial void OnSearchTextChanged(string value) => UpdateFilters();
-    partial void OnSelectedTagChanged(string? value) => UpdateFilters();
 
     public void UpdateFilters()
     {
@@ -125,42 +145,149 @@ public partial class LibraryViewModel : ViewModelBase, IRecipient<ShortcutPageCh
 
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
-            filtered = filtered.Where(t => t.Name.Contains(SearchText, System.StringComparison.OrdinalIgnoreCase) ||
-                                           t.FilePath.Contains(SearchText, System.StringComparison.OrdinalIgnoreCase));
+            filtered = filtered.Where(t => t.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
+                                           t.FilePath.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (!string.IsNullOrWhiteSpace(SelectedTag) && SelectedTag != "All")
+        // Collect the active selections per facet: the snapshot of RawTag
+        // strings the user has toggled on. A facet with no selections is
+        // inactive and contributes no filtering — only facets with at
+        // least one selection participate in the AND across facets.
+        var activeFacetSelections = new List<HashSet<string>>();
+        foreach (var facet in Facets)
         {
-            filtered = filtered.Where(t => t.Tags.Split(',', System.StringSplitOptions.RemoveEmptyEntries)
-                                                 .Select(tag => tag.Trim())
-                                                 .Contains(SelectedTag, System.StringComparer.OrdinalIgnoreCase));
+            var selected = facet.Values.Where(v => v.IsSelected)
+                                       .Select(v => v.RawTag)
+                                       .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (selected.Count > 0) activeFacetSelections.Add(selected);
         }
+
+        if (activeFacetSelections.Count > 0)
+        {
+            filtered = filtered.Where(t =>
+            {
+                var trackTags = (t.Tags ?? "")
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(tag => tag.Trim())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                // AND across facets — every active facet must contribute at
+                // least one match (OR within the facet).
+                return activeFacetSelections.All(selected => selected.Overlaps(trackTags));
+            });
+        }
+
+        HasActiveFilters = activeFacetSelections.Count > 0;
 
         // Default sort by name. DataGrid then re-sorts on column header click
         // via its own collection view — which only survives because we Clear
         // + Add into the same FilteredTracks instance instead of replacing it.
-        var ordered = filtered.OrderBy(t => t.Name, System.StringComparer.OrdinalIgnoreCase).ToList();
+        var ordered = filtered.OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
 
         FilteredTracks.Clear();
         foreach (var t in ordered) FilteredTracks.Add(t);
     }
 
-    public void UpdateAvailableTags()
+    /// <summary>Re-parse the library's tags into facet groups, preserving any
+    /// currently-selected RawTag values AND the user's facet-visibility
+    /// choices across the rebuild so an Import / Delete doesn't silently
+    /// clear filter clicks or collapse the picker selection. Subscribes
+    /// each new <see cref="TagFacetValueViewModel"/> to PropertyChanged so
+    /// toggling its chip in the view triggers a filter refresh, and each
+    /// new <see cref="FacetVisibilityChoice"/> so toggling its checkbox
+    /// in the Filters popup rebuilds <see cref="VisibleFacets"/>.</summary>
+    public void RebuildFacets()
     {
-        var tags = Tracks.SelectMany(t => t.Tags.Split(',', System.StringSplitOptions.RemoveEmptyEntries))
-                          .Select(t => t.Trim())
-                          .Distinct(System.StringComparer.OrdinalIgnoreCase)
-                          .OrderBy(t => t)
-                          .ToList();
+        // Snapshot the previously-selected RawTags so we can restore them
+        // after the rebuild. Set comparison is ordinal-case-insensitive,
+        // matching the way TagFacetParser case-folds namespaces and values.
+        var previouslySelected = Facets
+            .SelectMany(f => f.Values)
+            .Where(v => v.IsSelected)
+            .Select(v => v.RawTag)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        tags.Insert(0, "All");
-        // Mutate in place so the tag combo's SelectedItem keeps tracking.
-        AvailableTags.Clear();
-        foreach (var t in tags) AvailableTags.Add(t);
-        if (SelectedTag == null || !AvailableTags.Contains(SelectedTag))
+        // Also preserve which facet names the user had checked in the
+        // Filters picker. A facet name that no longer exists in the parsed
+        // output is silently dropped (its source tag was deleted).
+        var previouslyVisibleNames = FacetVisibilityChoices
+            .Where(c => c.IsVisible)
+            .Select(c => c.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Unsubscribe from old values + choices before tearing down —
+        // otherwise the stale handlers would keep this VM rooted via their
+        // PropertyChanged delegates.
+        foreach (var oldFacet in Facets)
+            foreach (var oldValue in oldFacet.Values)
+                oldValue.PropertyChanged -= OnFacetValueChanged;
+        foreach (var oldChoice in FacetVisibilityChoices)
+            oldChoice.PropertyChanged -= OnFacetVisibilityChanged;
+
+        Facets.Clear();
+        FacetVisibilityChoices.Clear();
+
+        var parsed = TagFacetParser.Parse(Tracks.Select(t => t.Tags));
+        foreach (var pf in parsed)
         {
-            SelectedTag = "All";
+            var facet = new TagFacetViewModel(pf.Name, pf.IsMiscellany);
+            foreach (var pv in pf.Values)
+            {
+                var value = new TagFacetValueViewModel(pv.Display, pv.RawTag)
+                {
+                    IsSelected = previouslySelected.Contains(pv.RawTag),
+                };
+                value.PropertyChanged += OnFacetValueChanged;
+                facet.Values.Add(value);
+            }
+            Facets.Add(facet);
+
+            var choice = new FacetVisibilityChoice(pf.Name, previouslyVisibleNames.Contains(pf.Name));
+            choice.PropertyChanged += OnFacetVisibilityChanged;
+            FacetVisibilityChoices.Add(choice);
         }
+
+        RebuildVisibleFacets();
+    }
+
+    /// <summary>Sync <see cref="VisibleFacets"/> to the current set of
+    /// checked facet names. Called by RebuildFacets and by the choice
+    /// PropertyChanged handler. Mutates the existing collection in place
+    /// so any view binding stays attached.</summary>
+    private void RebuildVisibleFacets()
+    {
+        var visibleNames = FacetVisibilityChoices
+            .Where(c => c.IsVisible)
+            .Select(c => c.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        VisibleFacets.Clear();
+        foreach (var facet in Facets)
+            if (visibleNames.Contains(facet.Name))
+                VisibleFacets.Add(facet);
+    }
+
+    private void OnFacetValueChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TagFacetValueViewModel.IsSelected))
+            UpdateFilters();
+    }
+
+    private void OnFacetVisibilityChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(FacetVisibilityChoice.IsVisible))
+            RebuildVisibleFacets();
+    }
+
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        // The PropertyChanged subscriptions fire UpdateFilters per value
+        // toggled; that's fine on a small library but means N+1 filter
+        // passes on a large one. Acceptable because Clear is a one-shot
+        // user action — not worth special-casing.
+        foreach (var facet in Facets)
+            foreach (var value in facet.Values)
+                value.IsSelected = false;
     }
 
     [RelayCommand]
@@ -193,7 +320,7 @@ public partial class LibraryViewModel : ViewModelBase, IRecipient<ShortcutPageCh
         if (addedAny)
         {
             db.SaveChanges();
-            UpdateAvailableTags();
+            RebuildFacets();
             UpdateFilters();
         }
     }
@@ -335,7 +462,7 @@ public partial class LibraryViewModel : ViewModelBase, IRecipient<ShortcutPageCh
         db.Tracks.Remove(track);
         db.SaveChanges();
         Tracks.Remove(track);
-        UpdateAvailableTags();
+        RebuildFacets();
         UpdateFilters();
     }
 

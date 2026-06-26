@@ -28,6 +28,18 @@ public partial class ImportOptionsViewModel : ViewModelBase
 
     public ObservableCollection<string> SearchPaths { get; } = new();
 
+    // Duplicate-handling policy. Three mutually-exclusive radio buttons in the
+    // dialog; defaults to Skip — the safest choice (nothing existing is
+    // mutated and nothing duplicate is inserted).
+    [ObservableProperty] private bool _isDuplicateSkip = true;
+    [ObservableProperty] private bool _isDuplicateReplace;
+    [ObservableProperty] private bool _isDuplicateAllow;
+
+    // Rename strategy applied when IsDuplicateAllow is selected. Two
+    // mutually-exclusive radio buttons; defaults to numeric suffix.
+    [ObservableProperty] private bool _isRenameNumeric = true;
+    [ObservableProperty] private bool _isRenameCopy;
+
     /// <summary>Captured options on OK; null on cancel.</summary>
     public ImportOptions? Result { get; private set; }
 
@@ -52,6 +64,39 @@ public partial class ImportOptionsViewModel : ViewModelBase
     {
         if (value) IsMergeMode = false;
         else if (!IsMergeMode) IsMergeMode = true;
+    }
+
+    // Keep the three duplicate-policy flags mutually exclusive — same pattern
+    // as the destination radio group above. The setters short-circuit on
+    // already-correct state so the cascading writes terminate after one round.
+    partial void OnIsDuplicateSkipChanged(bool value)
+    {
+        if (value) { IsDuplicateReplace = false; IsDuplicateAllow = false; }
+        else if (!IsDuplicateReplace && !IsDuplicateAllow) IsDuplicateSkip = true;
+    }
+
+    partial void OnIsDuplicateReplaceChanged(bool value)
+    {
+        if (value) { IsDuplicateSkip = false; IsDuplicateAllow = false; }
+        else if (!IsDuplicateSkip && !IsDuplicateAllow) IsDuplicateReplace = true;
+    }
+
+    partial void OnIsDuplicateAllowChanged(bool value)
+    {
+        if (value) { IsDuplicateSkip = false; IsDuplicateReplace = false; }
+        else if (!IsDuplicateSkip && !IsDuplicateReplace) IsDuplicateAllow = true;
+    }
+
+    partial void OnIsRenameNumericChanged(bool value)
+    {
+        if (value) IsRenameCopy = false;
+        else if (!IsRenameCopy) IsRenameNumeric = true;
+    }
+
+    partial void OnIsRenameCopyChanged(bool value)
+    {
+        if (value) IsRenameNumeric = false;
+        else if (!IsRenameNumeric) IsRenameCopy = true;
     }
 
     [RelayCommand]
@@ -79,6 +124,11 @@ public partial class ImportOptionsViewModel : ViewModelBase
             Mode = IsNewLibraryMode ? ImportMode.NewLibrary : ImportMode.Merge,
             NewLibraryName = IsNewLibraryMode ? NewLibraryName.Trim() : null,
             SearchPaths = new(SearchPaths),
+            DuplicateHandling =
+                IsDuplicateReplace ? DuplicatePolicy.Replace :
+                IsDuplicateAllow   ? DuplicatePolicy.AllowDuplicates :
+                                     DuplicatePolicy.Skip,
+            RenameStrategy = IsRenameCopy ? DuplicateRenameStrategy.CopySuffix : DuplicateRenameStrategy.NumericSuffix,
         };
 
         if (options.Mode == ImportMode.NewLibrary && string.IsNullOrWhiteSpace(options.NewLibraryName))

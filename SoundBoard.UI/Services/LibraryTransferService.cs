@@ -61,19 +61,25 @@ public class LibraryTransferService : ILibraryTransferService
         // Merge runs against a single fresh context so the entire import is
         // one logical operation with its own change-tracker scope.
         using var db = _dbFactory.CreateDbContext();
-        return await ImportMergeAsync(doc, resolver, db);
+        return await ImportMergeAsync(doc, options, resolver, db);
     }
 
     // ── Merge into the active library ────────────────────────────────────────
 
-    private async Task<ImportResult> ImportMergeAsync(ExportDocument doc, PathResolver resolver, SoundBoardDbContext db)
+    private async Task<ImportResult> ImportMergeAsync(ExportDocument doc, ImportOptions options, PathResolver resolver, SoundBoardDbContext db)
     {
         var result = new ImportResult();
 
-        // Tracks first. Match on resolved file path so the same audio file
-        // doesn't get duplicated — but don't replace existing rows; their
-        // user-set fields (icon, fades, etc.) should survive a merge.
+        // === Tracks ===
+        //
+        // Two collision keys: resolved FilePath and Name. FilePath collisions
+        // ALWAYS collapse — a single audio file is a single library entry,
+        // regardless of the user's chosen DuplicatePolicy. Name collisions
+        // (different FilePath, same Name) are governed by the policy.
         var trackIdMap = new Dictionary<int, int>();
+        var existingTracks = await db.Tracks.Select(t => new { t.Name, t.Id }).ToListAsync();
+        var trackRegistry = new NameRegistry(existingTracks.Select(t => (t.Name, t.Id)), options.RenameStrategy);
+
         foreach (var et in doc.Tracks)
         {
             var resolved = resolver.Resolve(et.FilePath);
@@ -83,40 +89,121 @@ public class LibraryTransferService : ILibraryTransferService
                 continue;
             }
 
-            var existing = await db.Tracks.FirstOrDefaultAsync(t => t.FilePath == resolved);
-            if (existing != null)
+            // FilePath collision: always collapse. The existing row's user
+            // fields (icon, fades, etc.) survive a merge — only Skip semantic
+            // is meaningful here.
+            var byPath = await db.Tracks.FirstOrDefaultAsync(t => t.FilePath == resolved);
+            if (byPath != null)
             {
-                trackIdMap[et.Id] = existing.Id;
-                result.SuccessfullyImported.Add(existing);
+                trackIdMap[et.Id] = byPath.Id;
+                result.SuccessfullyImported.Add(byPath);
+                trackRegistry.Note(byPath.Name, byPath.Id);
                 continue;
             }
 
+            // Name collision (with existing-or-already-inserted): apply policy.
+            if (trackRegistry.Contains(et.Name))
+            {
+                if (options.DuplicateHandling == DuplicatePolicy.Skip)
+                {
+                    var keepId = trackRegistry.GetExistingId(et.Name);
+                    if (keepId.HasValue) trackIdMap[et.Id] = keepId.Value;
+                    result.TracksSkipped++;
+                    continue;
+                }
+                if (options.DuplicateHandling == DuplicatePolicy.Replace)
+                {
+                    var keepId = trackRegistry.GetExistingId(et.Name);
+                    if (keepId.HasValue)
+                    {
+                        var existing = await db.Tracks.FindAsync(keepId.Value);
+                        if (existing != null)
+                        {
+                            ApplyExportToTrack(existing, et, resolved);
+                            await db.SaveChangesAsync();
+                            trackIdMap[et.Id] = existing.Id;
+                            result.SuccessfullyImported.Add(existing);
+                            result.TracksReplaced++;
+                            continue;
+                        }
+                    }
+                    // Registry knew the name but the row vanished — fall
+                    // through to a fresh insert under the original name.
+                }
+                else if (options.DuplicateHandling == DuplicatePolicy.AllowDuplicates)
+                {
+                    var unique = trackRegistry.MakeUnique(et.Name);
+                    var renamed = BuildTrackFromExport(et, resolved);
+                    renamed.Name = unique;
+                    db.Tracks.Add(renamed);
+                    await db.SaveChangesAsync();
+                    trackIdMap[et.Id] = renamed.Id;
+                    trackRegistry.Note(unique, renamed.Id);
+                    result.SuccessfullyImported.Add(renamed);
+                    result.TracksRenamed++;
+                    continue;
+                }
+            }
+
+            // No collision: fresh insert at original name.
             var fresh = BuildTrackFromExport(et, resolved);
             db.Tracks.Add(fresh);
             await db.SaveChangesAsync();
             trackIdMap[et.Id] = fresh.Id;
+            trackRegistry.Note(fresh.Name, fresh.Id);
             result.SuccessfullyImported.Add(fresh);
         }
 
-        // Presets — name collisions get fully replaced (cascade-deletes their
-        // PresetTrack rows).
+        // === Presets ===
         var presetIdMap = new Dictionary<int, int>();
+        var existingPresets = await db.Presets.Select(p => new { p.Name, p.Id }).ToListAsync();
+        var presetRegistry = new NameRegistry(existingPresets.Select(p => (p.Name, p.Id)), options.RenameStrategy);
+
         foreach (var ep in doc.Presets)
         {
-            var existing = await db.Presets
-                .Include(p => p.Tracks)
-                .FirstOrDefaultAsync(p => p.Name == ep.Name);
-            if (existing != null)
+            string nameToUse = ep.Name;
+
+            if (presetRegistry.Contains(ep.Name))
             {
-                db.PresetTracks.RemoveRange(existing.Tracks);
-                db.Presets.Remove(existing);
-                await db.SaveChangesAsync();
+                if (options.DuplicateHandling == DuplicatePolicy.Skip)
+                {
+                    var keepId = presetRegistry.GetExistingId(ep.Name);
+                    if (keepId.HasValue) presetIdMap[ep.Id] = keepId.Value;
+                    result.PresetsSkipped++;
+                    continue;
+                }
+                if (options.DuplicateHandling == DuplicatePolicy.Replace)
+                {
+                    var keepId = presetRegistry.GetExistingId(ep.Name);
+                    if (keepId.HasValue)
+                    {
+                        var existing = await db.Presets
+                            .Include(p => p.Tracks)
+                            .FirstOrDefaultAsync(p => p.Id == keepId.Value);
+                        if (existing != null)
+                        {
+                            db.PresetTracks.RemoveRange(existing.Tracks);
+                            db.Presets.Remove(existing);
+                            await db.SaveChangesAsync();
+                            presetRegistry.Forget(existing.Name);
+                            result.PresetsReplaced++;
+                        }
+                    }
+                    // Fall through to fresh insert under the original name.
+                }
+                else if (options.DuplicateHandling == DuplicatePolicy.AllowDuplicates)
+                {
+                    nameToUse = presetRegistry.MakeUnique(ep.Name);
+                    result.PresetsRenamed++;
+                }
             }
 
             var preset = BuildPresetFromExport(ep);
+            preset.Name = nameToUse;
             db.Presets.Add(preset);
             await db.SaveChangesAsync();
             presetIdMap[ep.Id] = preset.Id;
+            presetRegistry.Note(nameToUse, preset.Id);
 
             foreach (var pt in ep.Tracks)
             {
@@ -127,22 +214,51 @@ public class LibraryTransferService : ILibraryTransferService
         }
         await db.SaveChangesAsync();
 
-        // Playlists — same name-collision replace strategy.
+        // === Playlists ===
+        var existingPlaylists = await db.Playlists.Select(p => new { p.Name, p.Id }).ToListAsync();
+        var playlistRegistry = new NameRegistry(existingPlaylists.Select(p => (p.Name, p.Id)), options.RenameStrategy);
+
         foreach (var ep in doc.Playlists)
         {
-            var existing = await db.Playlists
-                .Include(p => p.Items)
-                .FirstOrDefaultAsync(p => p.Name == ep.Name);
-            if (existing != null)
+            string nameToUse = ep.Name;
+
+            if (playlistRegistry.Contains(ep.Name))
             {
-                db.PlaylistItems.RemoveRange(existing.Items);
-                db.Playlists.Remove(existing);
-                await db.SaveChangesAsync();
+                if (options.DuplicateHandling == DuplicatePolicy.Skip)
+                {
+                    result.PlaylistsSkipped++;
+                    continue;
+                }
+                if (options.DuplicateHandling == DuplicatePolicy.Replace)
+                {
+                    var keepId = playlistRegistry.GetExistingId(ep.Name);
+                    if (keepId.HasValue)
+                    {
+                        var existing = await db.Playlists
+                            .Include(p => p.Items)
+                            .FirstOrDefaultAsync(p => p.Id == keepId.Value);
+                        if (existing != null)
+                        {
+                            db.PlaylistItems.RemoveRange(existing.Items);
+                            db.Playlists.Remove(existing);
+                            await db.SaveChangesAsync();
+                            playlistRegistry.Forget(existing.Name);
+                            result.PlaylistsReplaced++;
+                        }
+                    }
+                }
+                else if (options.DuplicateHandling == DuplicatePolicy.AllowDuplicates)
+                {
+                    nameToUse = playlistRegistry.MakeUnique(ep.Name);
+                    result.PlaylistsRenamed++;
+                }
             }
 
             var playlist = BuildPlaylistFromExport(ep);
+            playlist.Name = nameToUse;
             db.Playlists.Add(playlist);
             await db.SaveChangesAsync();
+            playlistRegistry.Note(nameToUse, playlist.Id);
 
             foreach (var item in ep.Items)
             {
@@ -159,22 +275,50 @@ public class LibraryTransferService : ILibraryTransferService
         }
         await db.SaveChangesAsync();
 
-        // Shortcut pages — name collisions replace whole page + buttons.
+        // === Shortcut pages ===
+        var existingPages = await db.ShortcutPages.Select(p => new { p.Name, p.Id }).ToListAsync();
+        var pageRegistry = new NameRegistry(existingPages.Select(p => (p.Name, p.Id)), options.RenameStrategy);
+
         foreach (var page in doc.ShortcutPages)
         {
-            var existing = await db.ShortcutPages
-                .Include(p => p.Buttons)
-                .FirstOrDefaultAsync(p => p.Name == page.Name);
-            if (existing != null)
+            string nameToUse = page.Name;
+
+            if (pageRegistry.Contains(page.Name))
             {
-                db.ShortcutButtons.RemoveRange(existing.Buttons);
-                db.ShortcutPages.Remove(existing);
-                await db.SaveChangesAsync();
+                if (options.DuplicateHandling == DuplicatePolicy.Skip)
+                {
+                    result.ShortcutsSkipped++;
+                    continue;
+                }
+                if (options.DuplicateHandling == DuplicatePolicy.Replace)
+                {
+                    var keepId = pageRegistry.GetExistingId(page.Name);
+                    if (keepId.HasValue)
+                    {
+                        var existing = await db.ShortcutPages
+                            .Include(p => p.Buttons)
+                            .FirstOrDefaultAsync(p => p.Id == keepId.Value);
+                        if (existing != null)
+                        {
+                            db.ShortcutButtons.RemoveRange(existing.Buttons);
+                            db.ShortcutPages.Remove(existing);
+                            await db.SaveChangesAsync();
+                            pageRegistry.Forget(existing.Name);
+                            result.ShortcutsReplaced++;
+                        }
+                    }
+                }
+                else if (options.DuplicateHandling == DuplicatePolicy.AllowDuplicates)
+                {
+                    nameToUse = pageRegistry.MakeUnique(page.Name);
+                    result.ShortcutsRenamed++;
+                }
             }
 
-            var newPage = new ShortcutPage { Name = page.Name, OrderIndex = page.OrderIndex };
+            var newPage = new ShortcutPage { Name = nameToUse, OrderIndex = page.OrderIndex };
             db.ShortcutPages.Add(newPage);
             await db.SaveChangesAsync();
+            pageRegistry.Note(nameToUse, newPage.Id);
 
             foreach (var btn in page.Buttons)
             {
@@ -196,10 +340,77 @@ public class LibraryTransferService : ILibraryTransferService
         await db.SaveChangesAsync();
 
         Log.Info("Transfer",
-            $"Merge import done: {result.SuccessfullyImported.Count} tracks, {result.PresetsImported} presets, " +
-            $"{result.PlaylistsImported} playlists, {result.ShortcutsImported} pages. " +
+            $"Merge import done: {result.SuccessfullyImported.Count} tracks " +
+            $"(skipped {result.TracksSkipped}, replaced {result.TracksReplaced}, renamed {result.TracksRenamed}), " +
+            $"{result.PresetsImported} presets " +
+            $"(skipped {result.PresetsSkipped}, replaced {result.PresetsReplaced}, renamed {result.PresetsRenamed}), " +
+            $"{result.PlaylistsImported} playlists " +
+            $"(skipped {result.PlaylistsSkipped}, replaced {result.PlaylistsReplaced}, renamed {result.PlaylistsRenamed}), " +
+            $"{result.ShortcutsImported} pages " +
+            $"(skipped {result.ShortcutsSkipped}, replaced {result.ShortcutsReplaced}, renamed {result.ShortcutsRenamed}). " +
             $"{result.MissingFiles.Count} missing files.");
         return result;
+    }
+
+    /// <summary>Tracks already-known names (existing DB rows + entries inserted
+    /// earlier in this import) so the duplicate policy can detect collisions
+    /// both with persisted data and with the import file itself, and so a
+    /// non-colliding rename can be generated under
+    /// <see cref="DuplicatePolicy.AllowDuplicates"/>. Comparisons are
+    /// case-insensitive — users perceive "Battle" and "battle" as the same
+    /// name.</summary>
+    private sealed class NameRegistry
+    {
+        private readonly Dictionary<string, int> _byName = new(StringComparer.OrdinalIgnoreCase);
+        private readonly DuplicateRenameStrategy _strategy;
+
+        public NameRegistry(IEnumerable<(string Name, int Id)> existing, DuplicateRenameStrategy strategy)
+        {
+            foreach (var (name, id) in existing) _byName[name] = id;
+            _strategy = strategy;
+        }
+
+        public bool Contains(string name) => _byName.ContainsKey(name);
+        public int? GetExistingId(string name) => _byName.TryGetValue(name, out var id) ? id : null;
+        public void Note(string name, int id) => _byName[name] = id;
+        public void Forget(string name) => _byName.Remove(name);
+
+        public string MakeUnique(string baseName)
+        {
+            if (!_byName.ContainsKey(baseName)) return baseName;
+            if (_strategy == DuplicateRenameStrategy.NumericSuffix)
+            {
+                for (int i = 2; ; i++)
+                {
+                    var candidate = $"{baseName} ({i})";
+                    if (!_byName.ContainsKey(candidate)) return candidate;
+                }
+            }
+
+            // CopySuffix: " (copy)" first, then " (copy 2)", " (copy 3)", …
+            var first = $"{baseName} (copy)";
+            if (!_byName.ContainsKey(first)) return first;
+            for (int i = 2; ; i++)
+            {
+                var candidate = $"{baseName} (copy {i})";
+                if (!_byName.ContainsKey(candidate)) return candidate;
+            }
+        }
+    }
+
+    private static void ApplyExportToTrack(Track existing, ExportedTrack et, string resolvedPath)
+    {
+        existing.Name = et.Name;
+        existing.FilePath = resolvedPath;
+        existing.Tags = et.Tags ?? "";
+        existing.Icon = et.Icon;
+        existing.Volume = et.Volume;
+        existing.StartPoint = et.StartPointTicks.HasValue ? new TimeSpan(et.StartPointTicks.Value) : null;
+        existing.EndPoint   = et.EndPointTicks.HasValue   ? new TimeSpan(et.EndPointTicks.Value)   : null;
+        existing.FadeInDuration  = new TimeSpan(et.FadeInTicks);
+        existing.FadeOutDuration = new TimeSpan(et.FadeOutTicks);
+        existing.StartDelay      = new TimeSpan(et.StartDelayTicks);
+        existing.IsLooping = et.IsLooping;
     }
 
     // ── Import into a fresh library file ─────────────────────────────────────
@@ -223,11 +434,11 @@ public class LibraryTransferService : ILibraryTransferService
         {
             freshDb.Database.EnsureCreated();
 
-            // ImportMergeAsync's "name already exists → replace" logic is a
-            // no-op against an empty DB but harmless, so we reuse it rather
-            // than maintain two copies. The CreatedLibraryPath signal tells
-            // the caller to switch + restart.
-            var result = await ImportMergeAsync(doc, resolver, freshDb);
+            // ImportMergeAsync's collision-detection branches are no-ops
+            // against an empty DB — but the within-file dedup IS active and
+            // applies the same DuplicatePolicy. The CreatedLibraryPath signal
+            // tells the caller to switch + restart.
+            var result = await ImportMergeAsync(doc, options, resolver, freshDb);
             result.CreatedLibraryPath = newPath;
             Log.Info("Transfer", $"Imported into new library '{options.NewLibraryName}' at {newPath}");
             return result;

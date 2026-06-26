@@ -17,14 +17,105 @@
         </Style>
     </UserControl.Styles>
     
-    <Grid RowDefinitions="Auto, *">
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,20">
+    <Grid RowDefinitions="Auto, Auto, *">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,10">
             <Button Content="Import Audio..." Classes="primary" Command="{Binding ImportTracksCommand}" />
             <TextBox PlaceholderText="Search tracks..." Text="{Binding SearchText}" Width="200" VerticalAlignment="Center" />
-            <ComboBox ItemsSource="{Binding AvailableTags}" SelectedItem="{Binding SelectedTag}" Width="150" VerticalAlignment="Center" />
+
+            <!-- Filters picker. Click opens a popup with one checkbox per
+                 detected facet name; checked facets render as chip groups
+                 below. Default state is empty so a tag-heavy library
+                 doesn't dump every facet on the user at once. -->
+            <Button x:Name="FiltersPickerButton" Content="Filters ▾" VerticalAlignment="Center"
+                    IsVisible="{Binding !!FacetVisibilityChoices.Count}">
+                <Button.Flyout>
+                    <Flyout Placement="Bottom">
+                        <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding FacetVisibilityChoices}" MinWidth="220">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FacetVisibilityChoice">
+                                        <CheckBox Content="{Binding Name}"
+                                                  IsChecked="{Binding IsVisible, Mode=TwoWay}"
+                                                  Margin="0,2" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+
+            <Button Content="Clear filters" Command="{Binding ClearFiltersCommand}"
+                    IsVisible="{Binding HasActiveFilters}" VerticalAlignment="Center" />
         </StackPanel>
 
-        <DataGrid x:Name="TrackGrid" Grid.Row="1" ItemsSource="{Binding FilteredTracks}" AutoGenerateColumns="False"
+        <!-- Facet chip groups — one bordered panel per namespace plus a
+             miscellany "Tags" group for delimiter-less tags. Each chip is a
+             ToggleButton bound two-way to TagFacetValueViewModel.IsSelected,
+             so toggling refreshes the track filter through the VM's
+             PropertyChanged subscription. The outer WrapPanel lets the
+             groups flow onto multiple lines when the window is narrow. -->
+        <!-- Visible facet chip groups. Only renders facets the user picked
+             in the Filters popup, so a tag-rich library doesn't fragment
+             the header. Each group's chip row collapses when the user
+             clicks the header chevron — state is per-facet, per-session. -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      MaxHeight="220" Margin="0,0,0,12"
+                      IsVisible="{Binding !!VisibleFacets.Count}">
+            <ItemsControl ItemsSource="{Binding VisibleFacets}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TagFacetViewModel">
+                        <Border Background="{DynamicResource PanelBackground1}"
+                                BorderBrush="{DynamicResource SubtleBorder}"
+                                BorderThickness="1" CornerRadius="6"
+                                Padding="8,6" Margin="0,0,8,8">
+                            <StackPanel Spacing="4">
+                                <!-- Clickable header — toggles IsExpanded.
+                                     Background=Transparent + zero padding
+                                     makes it look like a label, not a
+                                     button. -->
+                                <Button Command="{Binding ToggleExpandedCommand}"
+                                        Background="Transparent" BorderThickness="0"
+                                        Padding="0" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Left">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="{Binding IsExpanded, Converter={x:Static c:ChevronConverter.Instance}}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource TextSecondary}" />
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11"
+                                                   Foreground="{DynamicResource TextSecondary}" />
+                                    </StackPanel>
+                                </Button>
+                                <ItemsControl ItemsSource="{Binding Values}"
+                                              IsVisible="{Binding IsExpanded}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:TagFacetValueViewModel">
+                                            <ToggleButton Content="{Binding Display}"
+                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          Padding="8,2" Margin="0,0,4,4"
+                                                          FontSize="11" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <DataGrid x:Name="TrackGrid" Grid.Row="2" ItemsSource="{Binding FilteredTracks}" AutoGenerateColumns="False"
                   IsReadOnly="True" GridLinesVisibility="Horizontal"
                   SelectionMode="Single"
                   CanUserSortColumns="True"
