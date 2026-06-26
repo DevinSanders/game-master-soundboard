@@ -12,12 +12,14 @@ namespace SoundBoard.Core.Data;
 /// <c>SchemaVersion</c> table records which versions have been applied.
 ///
 /// <para>On a fresh install <c>EnsureCreated()</c> builds every table from
-/// the EF model. The migration list is empty today — the app has not yet
-/// shipped, so there are no pre-existing user databases that would need
-/// patching. <see cref="Apply"/> still runs to:
+/// the EF model, then <see cref="Apply"/> runs to patch any column added
+/// to the model since an existing user's last launch. On a fresh DB the
+/// ALTER statements hit a column EnsureCreated already created — the
+/// duplicate-column error gets caught and recorded as baselined.
+/// <see cref="Apply"/> also:
 /// <list type="bullet">
-///   <item>Create the <c>SchemaVersion</c> bookkeeping table.</item>
-///   <item>Seed the three built-in buses (Music, Ambient, SFX) — EF
+///   <item>Creates the <c>SchemaVersion</c> bookkeeping table.</item>
+///   <item>Seeds the three built-in buses (Music, Ambient, SFX) — EF
 ///   doesn't seed data, so this stays in the migration runner even
 ///   though the schema itself is built by EnsureCreated.</item>
 /// </list></para>
@@ -42,25 +44,16 @@ public static class SchemaMigrations
     /// </summary>
     private const int Baseline = 1000;
 
-    // The migration list is currently empty: the app has not yet shipped
-    // to end users, so every database is built fresh from the current EF
-    // model via EnsureCreated() and there are no installed copies whose
-    // schema would need patching.
-    //
-    // The Buses table, Track.BusId column, Preset.BusIdOverride,
-    // ShortcutButton.BusIdOverride, and Bus.Volume — all of which used
-    // to be migrations 1001 and 1002 — are now part of the baseline EF
-    // model (see Models/*.cs). EnsureCreated() materialises them
-    // directly; no ALTER TABLE step required.
-    //
-    // The first post-launch schema change must go here as
-    // (Baseline + 1, "description", "ALTER TABLE ..."). Versions must
-    // be strictly increasing and never re-used. The Apply machinery
-    // below already handles "version already applied" and "column
-    // already exists" gracefully — see Apply's catch block.
+    // Append-only migration list. Versions must be strictly increasing
+    // and never re-used. Each entry's SQL targets a real installed DB;
+    // on a fresh DB the column already exists (EnsureCreated created it
+    // from the EF model) and Apply records the migration as baselined
+    // via the duplicate-column catch — see Apply's catch block.
     private static readonly List<(int Version, string Description, string Sql)> _migrations = new()
     {
         // ── Add new migrations below this line ─────────────────────────────
+        (Baseline + 1, "Add IsHidden to ShortcutPages",
+            "ALTER TABLE ShortcutPages ADD COLUMN IsHidden INTEGER NOT NULL DEFAULT 0"),
     };
 
     public static void Apply(SoundBoardDbContext db)

@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -36,6 +37,9 @@ public partial class ShortcutsView : UserControl
     private ItemsControl? _items;
     private GhostCardReorderController<ViewModels.ShortcutButtonViewModel>? _reorder;
 
+    private TabStrip? _pageTabs;
+    private GhostCardReorderController<ShortcutPage>? _tabReorder;
+
     public ShortcutsView()
     {
         InitializeComponent();
@@ -62,6 +66,29 @@ public partial class ShortcutsView : UserControl
                 moveVisually: (s, t) => Vm?.SwapButtons(s, t),
                 persistOrder: () => Vm?.PersistButtonOrder());
             _reorder.Attach(_items);
+        }
+
+        // Same ghost-mode pattern for the TabStrip — drag a tab horizontally
+        // to reorder it within the visible run. TabStrip derives from
+        // SelectingItemsControl which is an ItemsControl, so the controller
+        // wires through unchanged. The `moveVisually` swaps inside the
+        // bound VisiblePages collection; `persistOrder` walks that final
+        // collection and stamps OrderIndex back onto every page row.
+        _pageTabs = this.FindControl<TabStrip>("PageTabs");
+        if (_pageTabs != null)
+        {
+            _tabReorder = new GhostCardReorderController<ShortcutPage>(
+                root: this,
+                getItems: () => _pageTabs,
+                getTemplate: () => _pageTabs?.ItemTemplate,
+                moveVisually: (s, t) => Vm?.SwapPages(s, t),
+                persistOrder: () =>
+                {
+                    if (Vm == null) return;
+                    var ids = Vm.VisiblePages.Select(p => p.Id).ToList();
+                    Vm.ReorderPages(ids);
+                });
+            _tabReorder.Attach(_pageTabs);
         }
     }
 
@@ -252,6 +279,22 @@ public partial class ShortcutsView : UserControl
         if (sender is MenuItem mi && mi.DataContext is ShortcutPage page)
         {
             Vm?.DeletePageDirect(page.Id);
+        }
+    }
+
+    private void OnHidePageClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && mi.DataContext is ShortcutPage page)
+        {
+            Vm?.HidePageDirect(page.Id);
+        }
+    }
+
+    private void OnShowHiddenPageClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.DataContext is ShortcutPage page)
+        {
+            Vm?.ShowPageDirect(page.Id);
         }
     }
 

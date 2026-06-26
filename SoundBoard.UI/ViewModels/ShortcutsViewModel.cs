@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using SoundBoard.Core.Models;
 using SoundBoard.UI.Messages;
 using SoundBoard.UI.Services;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 
@@ -28,8 +29,27 @@ public partial class ShortcutsViewModel : ViewModelBase, IRecipient<ShortcutAdde
     private readonly ISamplerLauncherService _samplerLauncher;
     private readonly IPluginService _pluginService;
 
+    /// <summary>Full set of pages in the library, ordered by OrderIndex.
+    /// Used internally for lookups and as the source for
+    /// <see cref="VisiblePages"/> / <see cref="HiddenPages"/>; the view
+    /// binds to those filtered collections rather than this one.</summary>
     [ObservableProperty]
     private ObservableCollection<ShortcutPage> _pages = new();
+
+    /// <summary>Pages currently shown in the tab strip — every page that
+    /// has <c>IsHidden=false</c>, ordered by OrderIndex. Kept as a stable
+    /// reference (mutated in place) so the TabStrip's SelectedItem
+    /// binding survives a refresh.</summary>
+    public ObservableCollection<ShortcutPage> VisiblePages { get; } = new();
+
+    /// <summary>Pages the user has hidden — surfaced in the
+    /// "Hidden tabs ▾" overflow popup so they can be shown again. Empty
+    /// when no page is hidden; the overflow button binds visibility to
+    /// <see cref="HasHiddenPages"/>.</summary>
+    public ObservableCollection<ShortcutPage> HiddenPages { get; } = new();
+
+    [ObservableProperty]
+    private bool _hasHiddenPages;
 
     [ObservableProperty]
     private ShortcutPage? _selectedPage;
@@ -104,7 +124,8 @@ public partial class ShortcutsViewModel : ViewModelBase, IRecipient<ShortcutAdde
         }
 
         Pages = new ObservableCollection<ShortcutPage>(pages);
-        SelectedPage = Pages.First();
+        RefreshVisibleAndHidden();
+        SelectedPage = VisiblePages.FirstOrDefault() ?? Pages.First();
     }
 
     private void ReloadCurrentPage()
@@ -112,7 +133,30 @@ public partial class ShortcutsViewModel : ViewModelBase, IRecipient<ShortcutAdde
         var selectedPageId = SelectedPage?.Id;
         var pages = QueryPagesFromDb();
         Pages = new ObservableCollection<ShortcutPage>(pages);
-        SelectedPage = Pages.FirstOrDefault(p => p.Id == selectedPageId) ?? Pages.FirstOrDefault();
+        RefreshVisibleAndHidden();
+        // Prefer the previously-selected page if it's still visible. If it
+        // got hidden (or deleted), fall through to the first visible page.
+        SelectedPage = VisiblePages.FirstOrDefault(p => p.Id == selectedPageId)
+                     ?? VisiblePages.FirstOrDefault()
+                     ?? Pages.FirstOrDefault();
+    }
+
+    /// <summary>Project <see cref="Pages"/> into the two view-bound
+    /// collections (<see cref="VisiblePages"/> + <see cref="HiddenPages"/>)
+    /// without reassigning either — the TabStrip's SelectedItem binding
+    /// and any open popup ItemsControls are pinned to the existing
+    /// references and would lose state on reassign.</summary>
+    private void RefreshVisibleAndHidden()
+    {
+        VisiblePages.Clear();
+        foreach (var p in Pages.Where(p => !p.IsHidden).OrderBy(p => p.OrderIndex))
+            VisiblePages.Add(p);
+
+        HiddenPages.Clear();
+        foreach (var p in Pages.Where(p => p.IsHidden).OrderBy(p => p.OrderIndex))
+            HiddenPages.Add(p);
+
+        HasHiddenPages = HiddenPages.Count > 0;
     }
 
     partial void OnSelectedPageChanged(ShortcutPage? value)
@@ -259,6 +303,71 @@ public partial class ShortcutsViewModel : ViewModelBase, IRecipient<ShortcutAdde
         if (_dbFactory.EditorSave<Core.Models.ShortcutPage>(pageId, p => p.Name = newName))
             WeakReferenceMessenger.Default.Send(new ShortcutPageChangedMessage());
         ReloadCurrentPage();
+    }
+
+    /// <summary>Mark a page as hidden — it disappears from the tab strip
+    /// but stays in the database (preserves its buttons + position) and
+    /// resurfaces in the "Hidden tabs ▾" overflow popup. Called from the
+    /// code-behind when "Hide tab" is clicked. Refuses to hide the last
+    /// visible tab; the user always needs somewhere to land.</summary>
+    public void HidePageDirect(int pageId)
+    {
+        var visibleCount = Pages.Count(p => !p.IsHidden);
+        if (visibleCount <= 1) return;
+        if (_dbFactory.EditorSave<Core.Models.ShortcutPage>(pageId, p => p.IsHidden = true))
+            WeakReferenceMessenger.Default.Send(new ShortcutPageChangedMessage());
+        ReloadCurrentPage();
+    }
+
+    /// <summary>Re-show a hidden page. Called from the code-behind when
+    /// the user clicks ▸ Show next to a row in the "Hidden tabs ▾" popup.</summary>
+    public void ShowPageDirect(int pageId)
+    {
+        if (_dbFactory.EditorSave<Core.Models.ShortcutPage>(pageId, p => p.IsHidden = false))
+            WeakReferenceMessenger.Default.Send(new ShortcutPageChangedMessage());
+        ReloadCurrentPage();
+        SelectedPage = VisiblePages.FirstOrDefault(p => p.Id == pageId) ?? SelectedPage;
+    }
+
+    /// <summary>Visual-only swap during a drag. The ghost reorder
+    /// controller calls this many times per drag to keep the tab strip
+    /// in sync with the dragged ghost; <see cref="ReorderPages"/> commits
+    /// the final order to disk once the user releases. Mirrors the
+    /// SwapButtons / PersistButtonOrder pair used by the grid.</summary>
+    public void SwapPages(ShortcutPage source, ShortcutPage target)
+    {
+        var sIndex = VisiblePages.IndexOf(source);
+        var tIndex = VisiblePages.IndexOf(target);
+        if (sIndex != -1 && tIndex != -1 && sIndex != tIndex)
+            VisiblePages.Move(sIndex, tIndex);
+    }
+
+    /// <summary>Persist a new tab order from the soundboard's drag-reorder
+    /// gesture. <paramref name="orderedVisibleIds"/> lists the page ids in
+    /// the order the user dragged them in the tab strip; we walk it and
+    /// stamp OrderIndex on each page. Hidden pages retain their existing
+    /// OrderIndex (the drag UI never showed them) — they keep their
+    /// relative position among the hidden set, sorted after the visible
+    /// run by the higher OrderIndex values we assign here.</summary>
+    public void ReorderPages(IReadOnlyList<int> orderedVisibleIds)
+    {
+        if (orderedVisibleIds.Count == 0) return;
+        using var db = _dbFactory.CreateDbContext();
+        var tracked = db.ShortcutPages.ToList();
+        for (int i = 0; i < orderedVisibleIds.Count; i++)
+        {
+            var page = tracked.FirstOrDefault(p => p.Id == orderedVisibleIds[i]);
+            if (page != null) page.OrderIndex = i;
+        }
+        // Hidden pages get pushed past the visible run so they re-sort
+        // cleanly if any of them comes back. Preserve their relative
+        // order among themselves.
+        int next = orderedVisibleIds.Count;
+        foreach (var hidden in tracked.Where(p => p.IsHidden).OrderBy(p => p.OrderIndex))
+            hidden.OrderIndex = next++;
+        db.SaveChanges();
+        ReloadCurrentPage();
+        WeakReferenceMessenger.Default.Send(new ShortcutPageChangedMessage());
     }
 
     /// <summary>

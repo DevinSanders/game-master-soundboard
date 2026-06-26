@@ -45,7 +45,8 @@
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Disabled"
                           PointerWheelChanged="OnPageTabsWheel">
-                <TabStrip ItemsSource="{Binding Pages}" SelectedItem="{Binding SelectedPage}">
+                <TabStrip x:Name="PageTabs"
+                          ItemsSource="{Binding VisiblePages}" SelectedItem="{Binding SelectedPage}">
                     <TabStrip.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold" Padding="10,5"
@@ -53,6 +54,7 @@
                                 <TextBlock.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem Header="Rename Page..." Click="OnRenamePageClicked" />
+                                        <MenuItem Header="Hide Page" Click="OnHidePageClicked" />
                                         <MenuItem Header="Delete Page" Click="OnDeletePageClicked" />
                                     </ContextMenu>
                                 </TextBlock.ContextMenu>
@@ -67,6 +69,33 @@
                 <Button Content="+" FontSize="18" FontWeight="Bold" Padding="10,3"
                         Background="{DynamicResource SuccessBackground}" Foreground="{DynamicResource SuccessForeground}" CornerRadius="6"
                         ToolTip.Tip="Add new page" Command="{Binding AddPageCommand}" />
+
+                <!-- Hidden tabs overflow. Only shows when at least one page
+                     is hidden — keeps the toolbar clean otherwise. Each row
+                     in the flyout lists a hidden page's name with a
+                     one-click "Show" button that flips IsHidden=false. -->
+                <Button Content="Hidden tabs ▾" ToolTip.Tip="Show hidden pages"
+                        IsVisible="{Binding HasHiddenPages}">
+                    <Button.Flyout>
+                        <Flyout Placement="Bottom">
+                            <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding HiddenPages}" MinWidth="240">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*, Auto" Margin="4">
+                                                <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                                           VerticalAlignment="Center" />
+                                                <Button Grid.Column="1" Content="▸ Show" Padding="8,2"
+                                                        Click="OnShowHiddenPageClicked" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+
                 <Button Content="Pop Out 🗗" Command="{Binding PopOutCommand}" Classes="primary" />
             </StackPanel>
         </Grid>
