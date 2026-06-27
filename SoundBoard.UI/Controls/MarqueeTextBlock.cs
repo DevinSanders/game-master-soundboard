@@ -66,7 +66,7 @@ public sealed class MarqueeTextBlock : Border
     // renders the glyphs.
     public static readonly StyledProperty<IBrush?> ForegroundProperty =
         TextBlock.ForegroundProperty.AddOwner<MarqueeTextBlock>();
-    public new IBrush? Foreground
+    public IBrush? Foreground
     {
         get => GetValue(ForegroundProperty);
         set => SetValue(ForegroundProperty, value);
