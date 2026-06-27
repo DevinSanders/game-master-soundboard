@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.Generic;
@@ -135,8 +137,28 @@ public class WindowManagerService : IWindowManagerService
         };
         _openWindows[key] = window;
 
-        window.Show();
+        // Establish a parent / tool-window z-order relationship with the
+        // main window. Without an Owner every spawned window is a peer of
+        // the main window — clicking the main window's taskbar icon, or
+        // any focus event that bubbles to it, brings it above the
+        // secondary windows and hides them. Owner=MainWindow pins each
+        // spawned window above main forever; the windows the user
+        // explicitly opened (Library / Mixer / Shortcuts / popped pages /
+        // editors) are now "tool windows" of main and can no longer be
+        // covered by it.
+        //
+        // The Show(owner) overload sets Owner AND surfaces the window in
+        // one call. Falling back to bare Show() during early startup or
+        // headless tests (no MainWindow) keeps the service usable.
+        var owner = MainWindow();
+        if (owner != null && !ReferenceEquals(owner, window))
+            window.Show(owner);
+        else
+            window.Show();
     }
+
+    private static Window? MainWindow() =>
+        (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
 
     private static string KeyFor(object content) => content.GetType().FullName ?? content.GetType().Name;
 
