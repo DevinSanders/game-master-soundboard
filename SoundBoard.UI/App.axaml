@@ -44,6 +44,9 @@
         <DataTemplate DataType="{x:Type vm:ImportOptionsViewModel}">
             <views:ImportOptionsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AddTrackViewModel}">
+            <views:AddTrackView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:PoppedShortcutPageViewModel}">
             <views:PoppedShortcutPageView />
         </DataTemplate>

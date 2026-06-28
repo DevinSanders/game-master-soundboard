@@ -19,7 +19,14 @@
     
     <Grid RowDefinitions="Auto, Auto, *">
         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,10">
-            <Button Content="Import Audio..." Classes="primary" Command="{Binding ImportTracksCommand}" />
+            <!-- One entry point for adding any source — local file path
+                 or URL. The dialog itself has a Browse button next to
+                 the URI field, so the OS file picker is one click away
+                 without making it a separate top-level toolbar action.
+                 Drag-and-drop of files onto the Library window still
+                 routes through LibraryViewModel.ImportFiles for batch
+                 adds. -->
+            <Button Content="Add Track..." Classes="primary" Click="OnAddTrackClicked" />
             <TextBox PlaceholderText="Search tracks..." Text="{Binding SearchText}" Width="200" VerticalAlignment="Center" />
 
             <!-- Filters picker. Click opens a popup with one checkbox per

@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SoundBoard.UI.ViewModels"
+             x:Class="SoundBoard.UI.Views.AddTrackView"
+             x:DataType="vm:AddTrackViewModel">
+
+    <Grid RowDefinitions="Auto, *, Auto" Margin="20" RowSpacing="14">
+        <StackPanel Grid.Row="0" Spacing="4">
+            <TextBlock Text="Add Track" FontSize="20" FontWeight="Bold"
+                       Foreground="{DynamicResource TextPrimary}" />
+            <TextBlock Text="Enter a local file path or a URL. Whatever installed codec plugin claims the URI's extension or scheme will handle playback."
+                       FontSize="11"
+                       Foreground="{DynamicResource TextSecondary}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Spacing="14">
+            <Border Background="{DynamicResource PanelBackground1}" CornerRadius="6" Padding="14">
+                <StackPanel Spacing="10">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="URI" FontSize="11" Foreground="{DynamicResource TextSecondary}" />
+                        <!-- Single-row URI input with Browse button. * column
+                             gives the TextBox the bulk of the width; the
+                             Auto column sizes Browse to its content. -->
+                        <Grid ColumnDefinitions="*, Auto" ColumnSpacing="8">
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding Uri}"
+                                     PlaceholderText="C:\path\to\audio.mp3   or   https://example.com/stream.mp3"
+                                     FontFamily="Cascadia Mono, Consolas, monospace"
+                                     FontSize="12" />
+                            <Button Grid.Column="1" Content="Browse..."
+                                    Command="{Binding BrowseCommand}"
+                                    VerticalAlignment="Stretch" />
+                        </Grid>
+                        <TextBlock Text="{Binding UriError}"
+                                   IsVisible="{Binding UriError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Foreground="{DynamicResource DangerForeground}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Name (optional)" FontSize="11" Foreground="{DynamicResource TextSecondary}" />
+                        <TextBox Text="{Binding Name}"
+                                 PlaceholderText="Leave blank to derive from the URI" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Tags (optional)" FontSize="11" Foreground="{DynamicResource TextSecondary}" />
+                        <TextBox Text="{Binding Tags}"
+                                 PlaceholderText="comma, separated, tags — same format as the Track editor" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+            <Button Content="Cancel" Command="{Binding CancelCommand}" IsCancel="True" />
+            <Button Content="Add Track" Classes="primary" Command="{Binding ConfirmCommand}" IsDefault="True" />
+        </StackPanel>
+    </Grid>
+</UserControl>

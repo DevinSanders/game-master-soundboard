@@ -61,6 +61,27 @@ public static class AudioFileReaderCrossPlatform
     public static IReadOnlyList<IAudioCodecPlugin> SnapshotPlugins()
         => _codecPlugins.ToArray();
 
+    /// <summary>Cheap predicate variant of <see cref="Create"/> — does the
+    /// registered codec set (plugins + the built-in WAV fallback) claim
+    /// this source? The host's Add-Track dialog calls this on confirm to
+    /// reject URIs whose extension or scheme no installed codec advertises,
+    /// surfacing a "no codec supports this" warning before a Track row
+    /// lands in the library and fails noisily at play time.
+    ///
+    /// <para>Empty / null input is false. Otherwise the same two-pass
+    /// match runs as <see cref="Create"/>: extension then scheme prefix
+    /// across each registered <see cref="IAudioCodecPlugin"/>, with the
+    /// built-in <c>.wav</c> short-circuit at the top.</para></summary>
+    public static bool IsSupported(string? source)
+    {
+        if (string.IsNullOrEmpty(source)) return false;
+        var ext = Path.GetExtension(source).ToLowerInvariant();
+        if (ext == ".wav") return true;
+        foreach (var plugin in _codecPlugins)
+            if (PluginMatches(plugin, source, ext)) return true;
+        return false;
+    }
+
     public static ISeekableSampleProvider Create(string source)
     {
         if (string.IsNullOrEmpty(source))

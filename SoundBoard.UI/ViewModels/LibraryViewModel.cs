@@ -290,11 +290,61 @@ public partial class LibraryViewModel : ViewModelBase, IRecipient<ShortcutPageCh
                 value.IsSelected = false;
     }
 
-    [RelayCommand]
-    private async System.Threading.Tasks.Task ImportTracks()
+    /// <summary>Build the modal dialog VM for the Library window's
+    /// "Add Track…" button. The factory wires in the file-service (for
+    /// the dialog's Browse button) and the codec-registry predicate
+    /// (for URI validation) so the dialog doesn't need to know about
+    /// either subsystem — same factory-method pattern Settings uses
+    /// for the Import-Options dialog. Code-behind constructs the
+    /// AppWindow host and calls ShowDialog; on confirm the result
+    /// flows to <see cref="AddTrack"/>.</summary>
+    public AddTrackViewModel CreateAddTrackVm() =>
+        new(_fileService, SoundBoard.Core.Audio.AudioFileReaderCrossPlatform.IsSupported);
+
+    /// <summary>Insert a Track row whose source is any URI the codec
+    /// registry claims — file path or URL. Skips the row when the same
+    /// URI is already in the library. FileDuration is left null for
+    /// URLs because live streams have no fixed length; the codec
+    /// returns <c>IsSeekable=false</c> and the mixer card adapts at
+    /// play time. For local files we still try to read the duration
+    /// (same code path as drag-drop import) so it appears in the
+    /// Length column immediately.</summary>
+    public void AddTrack(string uri, string name, string tags)
     {
-        var files = await _fileService.OpenFileDialogAsync("Select Audio Files", new[] { "*.mp3", "*.wav", "*.ogg", "*.flac" });
-        ImportFiles(files);
+        if (string.IsNullOrWhiteSpace(uri)) return;
+        using var db = _dbFactory.CreateDbContext();
+        if (db.Tracks.Any(t => t.FilePath == uri))
+        {
+            Log.Info("Library", $"Track skipped (URI already in library): {uri}");
+            return;
+        }
+
+        // Try a duration read only for paths that look local; remote
+        // URLs would block on the network and time out the dialog
+        // close. The play-time codec will tell the truth either way.
+        TimeSpan? duration = LooksLikeLocalPath(uri) ? TryReadDuration(uri) : null;
+
+        var track = new Track
+        {
+            Name = string.IsNullOrWhiteSpace(name) ? uri : name,
+            FilePath = uri,
+            Tags = tags ?? "",
+            FileDuration = duration,
+        };
+        db.Tracks.Add(track);
+        db.SaveChanges();
+        Tracks.Add(track);
+        RebuildFacets();
+        UpdateFilters();
+    }
+
+    private static bool LooksLikeLocalPath(string uri)
+    {
+        // "://" present anywhere in the leading characters means it's a
+        // URL with a scheme — skip the duration probe. Otherwise treat
+        // it as a local file path and let TryReadDuration handle
+        // existence / decoder errors.
+        return !uri.Contains("://", StringComparison.Ordinal);
     }
 
     public void ImportFiles(System.Collections.Generic.IEnumerable<string> filePaths)

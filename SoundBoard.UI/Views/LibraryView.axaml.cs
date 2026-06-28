@@ -1,9 +1,12 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using SoundBoard.Core.Models;
+using SoundBoard.UI.Controls;
+using SoundBoard.UI.Services;
 using System.Linq;
 
 namespace SoundBoard.UI.Views;
@@ -72,4 +75,34 @@ public partial class LibraryView : UserControl
             vm.ImportFiles(paths);
         }
     }
+
+    // Open the unified Add-Track modal. Hosts the dialog VM in an
+    // AppWindow, ShowDialog against the LibraryView's TopLevel so it
+    // stays modal, then on confirm hands the captured values to the VM
+    // for insertion. The VM's CreateAddTrackVm factory wires in the
+    // file-service (for the Browse button) and the codec-support
+    // predicate (for URI validation) without leaking either out as
+    // public dialog construction surface.
+    private async void OnAddTrackClicked(object? sender, RoutedEventArgs e)
+        => await UiOps.RunGuarded(async () =>
+        {
+            if (DataContext is not ViewModels.LibraryViewModel vm) return;
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            if (owner == null) return;
+
+            var dialogVm = vm.CreateAddTrackVm();
+            var dialog = new AppWindow
+            {
+                Title = "Add Track",
+                Width = 620,
+                Height = 420,
+                ShellContent = dialogVm,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            };
+            dialogVm.Closed += () => dialog.Close();
+            await dialog.ShowDialog(owner);
+
+            if (dialogVm.Result is { } result)
+                vm.AddTrack(result.Uri, result.Name, result.Tags);
+        }, "Add Track");
 }
