@@ -22,6 +22,15 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
+    <!-- Pinned to override the transitive 2.1.11 that EF Core 10.0.9
+         drags in, which the NU1903 advisory (GHSA-2m69-gcr7-jv3q)
+         flags as high severity. 3.0.x ships the patched native
+         sqlite3 (SourceGear.sqlite3 3.50.4+); EF Core's SQLite
+         provider works fine against either generation since the
+         SQLitePCLRaw API surface didn't change across the major
+         bump. Re-evaluate when EF Core itself ships against a
+         clean SQLitePCLRaw. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <!-- OpenAL Soft is the audio output backend on both macOS and Linux
          — one library across the Unix-family platforms, one mental model,
          one set of tests. Replaces miniaudio (Miniaudio-CS), which:
@@ -46,8 +55,7 @@
          for OpenAL too — no host code change needed. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
     <PackageReference Include="Silk.NET.OpenAL" Version="2.23.0" />
-    <PackageReference Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1"
-                      Condition="!$([MSBuild]::IsOSPlatform('Windows'))" />
+    <PackageReference Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1" Condition="!$([MSBuild]::IsOSPlatform('Windows'))" />
     <PackageReference Include="NAudio" Version="2.3.0" />
     <PackageReference Include="NAudio.Core" Version="2.3.0" />
     <PackageReference Include="NAudio.Wasapi" Version="2.3.0" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />

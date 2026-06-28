@@ -27,9 +27,13 @@
     <PackageReference Include="FluentAssertions" Version="7.2.2" />
     <PackageReference Include="NSubstitute" Version="5.3.0" />
 
-    <!-- SQLite in-memory for EF tests. -->
+    <!-- SQLite in-memory for EF tests. The bundle_e_sqlite3 pin
+         overrides the transitive 2.1.11 that EF 10.0.9 drags in,
+         which the NU1903 advisory (GHSA-2m69-gcr7-jv3q) flags. See
+         SoundBoard.Core.csproj for the same pin + rationale. -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
 
     <!-- Audio fakes need ISampleProvider. -->
     <PackageReference Include="NAudio.Core" Version="2.3.0" />
