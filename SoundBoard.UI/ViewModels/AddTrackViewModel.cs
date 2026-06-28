@@ -118,15 +118,19 @@ public partial class AddTrackViewModel : ViewModelBase
     /// leaves Name blank. Tries the file-name stem first; if the URI
     /// parses as a URL with no useful path, falls back to the host.
     /// As a last resort returns the URI verbatim so the row at least
-    /// reads as the source itself rather than something arbitrary.</summary>
+    /// reads as the source itself rather than something arbitrary.
+    ///
+    /// <para>Stem extraction is done manually so both <c>\</c> and
+    /// <c>/</c> count as separators regardless of the host OS —
+    /// <see cref="System.IO.Path.GetFileNameWithoutExtension"/> only
+    /// recognises the platform-native separator (so a Windows path
+    /// pasted on Linux would yield the whole string as "the file
+    /// name"). The dialog accepts any URI from anywhere, so the
+    /// extraction has to be platform-agnostic.</para></summary>
     private static string DefaultName(string uri)
     {
-        try
-        {
-            var stem = System.IO.Path.GetFileNameWithoutExtension(uri);
-            if (!string.IsNullOrWhiteSpace(stem)) return stem;
-        }
-        catch { /* malformed path — fall through */ }
+        var stem = ExtractStem(uri);
+        if (!string.IsNullOrWhiteSpace(stem)) return stem;
 
         if (System.Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
             && !string.IsNullOrEmpty(parsed.Host))
@@ -134,6 +138,19 @@ public partial class AddTrackViewModel : ViewModelBase
             return parsed.Host;
         }
         return uri;
+    }
+
+    private static string ExtractStem(string s)
+    {
+        // Walk back to the last separator (either flavour). The "file
+        // name" portion is what follows; the extension is whatever
+        // sits after the final dot in that portion. Both probes are
+        // string operations that don't touch Path.* so the answer is
+        // the same on Windows and Unix.
+        int sep = s.LastIndexOfAny(new[] { '\\', '/' });
+        var name = sep >= 0 ? s.Substring(sep + 1) : s;
+        int dot = name.LastIndexOf('.');
+        return dot > 0 ? name.Substring(0, dot) : name;
     }
 }
 

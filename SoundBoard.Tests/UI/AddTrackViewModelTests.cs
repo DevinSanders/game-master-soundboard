@@ -67,13 +67,19 @@ public class AddTrackViewModelTests
         closed.Should().BeTrue();
     }
 
-    [Fact]
-    public void Confirm_WithBlankName_DerivesFromUri()
+    [Theory]
+    [InlineData(@"C:\Music\Tavern\drinking-song.mp3")]   // Windows-style
+    [InlineData("/home/user/Music/drinking-song.mp3")]   // Unix-style
+    [InlineData("https://example.com/audio/drinking-song.mp3")]  // URL
+    public void Confirm_WithBlankName_DerivesStemRegardlessOfPathStyle(string uri)
     {
-        // File-name stem is the most useful display name; falls out of
-        // Path.GetFileNameWithoutExtension on either a path or a URL.
+        // Stem extraction must work the same way on Windows / Linux /
+        // macOS — a user can paste any URI from anywhere. The dialog
+        // walks back to the last \ OR / instead of relying on
+        // Path.GetFileNameWithoutExtension (which only recognises the
+        // platform-native separator).
         var vm = BuildVm();
-        vm.Uri = @"C:\Music\Tavern\drinking-song.mp3";
+        vm.Uri = uri;
 
         vm.ConfirmCommand.Execute(null);
 
