@@ -431,6 +431,195 @@ public sealed class LibraryTransferServiceImportTests : IDisposable
         result.ShortcutsSkipped.Should().Be(1);
     }
 
+    // ── Bus round-trip (schema 3) ──────────────────────────────────────────
+
+    [Fact]
+    public async Task Schema3_BuiltInBusIds_MapIdentityOnTrackImport()
+    {
+        var path = MakeAudioFile("ambient-loop.wav");
+        var jsonPath = WriteExport(new
+        {
+            Schema = 3,
+            ExportedAt = DateTime.UtcNow,
+            Buses = new[]
+            {
+                new { Id = 1, Name = "Music",   Order = 0, IsBuiltIn = true, Volume = 1.0f },
+                new { Id = 2, Name = "Ambient", Order = 1, IsBuiltIn = true, Volume = 1.0f },
+                new { Id = 3, Name = "SFX",     Order = 2, IsBuiltIn = true, Volume = 1.0f },
+            },
+            Tracks = new[] { new { Id = 7, Name = "Forest", FilePath = path, BusId = 2 } },
+            Presets = Array.Empty<object>(),
+            Playlists = Array.Empty<object>(),
+            ShortcutPages = Array.Empty<object>(),
+        });
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        read.Tracks.Single().BusId.Should().Be(BuiltInBusIds.Ambient);
+    }
+
+    [Fact]
+    public async Task Schema3_CustomBus_ExistingByName_RemapsToDestinationId()
+    {
+        // Destination already has a custom bus called "Combat" at id 17.
+        // Source's "Combat" is id 99 — the importer must remap source.99 →
+        // destination.17 on the track row, NOT insert a duplicate bus.
+        int destinationCombatId;
+        using (var seed = _fx.CreateContext())
+        {
+            var existing = new Bus { Name = "Combat", Order = 5, IsBuiltIn = false, Volume = 0.8f };
+            seed.Buses.Add(existing);
+            seed.SaveChanges();
+            destinationCombatId = existing.Id;
+        }
+
+        var path = MakeAudioFile("battle-theme.wav");
+        var jsonPath = WriteExport(new
+        {
+            Schema = 3,
+            ExportedAt = DateTime.UtcNow,
+            Buses = new[]
+            {
+                new { Id = 99, Name = "Combat", Order = 10, IsBuiltIn = false, Volume = 0.5f },
+            },
+            Tracks = new[] { new { Id = 1, Name = "Battle Theme", FilePath = path, BusId = 99 } },
+            Presets = Array.Empty<object>(),
+            Playlists = Array.Empty<object>(),
+            ShortcutPages = Array.Empty<object>(),
+        });
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        read.Buses.Where(b => b.Name == "Combat").Count().Should().Be(1);
+        var combat = read.Buses.Single(b => b.Name == "Combat");
+        combat.Id.Should().Be(destinationCombatId);
+        combat.Volume.Should().BeApproximately(0.8f, 0.001f); // destination settings preserved
+        read.Tracks.Single().BusId.Should().Be(destinationCombatId);
+    }
+
+    [Fact]
+    public async Task Schema3_CustomBus_MissingInDestination_InsertedAndTrackRemapped()
+    {
+        var path = MakeAudioFile("eerie-pad.wav");
+        var jsonPath = WriteExport(new
+        {
+            Schema = 3,
+            ExportedAt = DateTime.UtcNow,
+            Buses = new[]
+            {
+                new { Id = 50, Name = "Suspense", Order = 7, IsBuiltIn = false,
+                      Color = "#FF8800", Volume = 0.6f },
+            },
+            Tracks = new[] { new { Id = 1, Name = "Eerie Pad", FilePath = path, BusId = 50 } },
+            Presets = Array.Empty<object>(),
+            Playlists = Array.Empty<object>(),
+            ShortcutPages = Array.Empty<object>(),
+        });
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        var bus = read.Buses.Single(b => b.Name == "Suspense");
+        bus.IsBuiltIn.Should().BeFalse();
+        bus.Order.Should().Be(7);
+        bus.Color.Should().Be("#FF8800");
+        bus.Volume.Should().BeApproximately(0.6f, 0.001f);
+        read.Tracks.Single().BusId.Should().Be(bus.Id);
+    }
+
+    [Fact]
+    public async Task Schema3_PresetBusOverride_RoundTripsThroughMap()
+    {
+        var path = MakeAudioFile("piano.wav");
+        var jsonPath = WriteExport(new
+        {
+            Schema = 3,
+            ExportedAt = DateTime.UtcNow,
+            Buses = new[]
+            {
+                new { Id = 1, Name = "Music", Order = 0, IsBuiltIn = true, Volume = 1.0f },
+                new { Id = 3, Name = "SFX",   Order = 2, IsBuiltIn = true, Volume = 1.0f },
+            },
+            Tracks = new[] { new { Id = 1, Name = "Piano", FilePath = path, BusId = 1 } },
+            Presets = new[]
+            {
+                new { Id = 10, Name = "Stinger", BusIdOverride = (int?)3,
+                      Tracks = new[] { new { TrackId = 1, Order = 0 } } }
+            },
+            Playlists = Array.Empty<object>(),
+            ShortcutPages = Array.Empty<object>(),
+        });
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        read.Presets.Single().BusIdOverride.Should().Be(BuiltInBusIds.Sfx);
+    }
+
+    [Fact]
+    public async Task Schema3_ShortcutBusOverride_RoundTripsThroughMap()
+    {
+        var path = MakeAudioFile("door-slam.wav");
+        var jsonPath = WriteExport(new
+        {
+            Schema = 3,
+            ExportedAt = DateTime.UtcNow,
+            Buses = new[]
+            {
+                new { Id = 1, Name = "Music", Order = 0, IsBuiltIn = true, Volume = 1.0f },
+                new { Id = 3, Name = "SFX",   Order = 2, IsBuiltIn = true, Volume = 1.0f },
+            },
+            Tracks = new[] { new { Id = 1, Name = "Door Slam", FilePath = path, BusId = 1 } },
+            Presets = Array.Empty<object>(),
+            Playlists = Array.Empty<object>(),
+            ShortcutPages = new[]
+            {
+                new { Id = 20, Name = "Page", OrderIndex = 0,
+                      Buttons = new[]
+                      {
+                          new { Label = "Slam", Row = 0, Column = 0,
+                                TrackId = (int?)1, BusIdOverride = (int?)3 }
+                      } }
+            },
+        });
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        var btn = read.ShortcutButtons.Single();
+        btn.BusIdOverride.Should().Be(BuiltInBusIds.Sfx);
+    }
+
+    [Fact]
+    public async Task Schema2_Bundle_TrackWithoutBusId_FallsBackToDefaultBus()
+    {
+        // Schema-2 bundle: no Buses collection, no BusId on tracks. The
+        // importer must not throw, and the track lands on the default bus.
+        var path = MakeAudioFile("legacy.wav");
+        var jsonPath = WriteExport(new
+        {
+            Schema = 2,
+            ExportedAt = DateTime.UtcNow,
+            Tracks = new[] { new { Id = 1, Name = "Legacy", FilePath = path } },
+            Presets = Array.Empty<object>(),
+            Playlists = Array.Empty<object>(),
+            ShortcutPages = Array.Empty<object>(),
+        });
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        read.Tracks.Single().BusId.Should().Be(BuiltInBusIds.DefaultForNewTracks);
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private string MakeAudioFile(string name)

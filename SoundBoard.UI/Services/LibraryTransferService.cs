@@ -20,7 +20,13 @@ namespace SoundBoard.UI.Services;
 /// </summary>
 public class LibraryTransferService : ILibraryTransferService
 {
-    private const int CurrentSchemaVersion = 2;
+    // Schema 3 introduces full bus round-trip: Track.BusId,
+    // Preset.BusIdOverride, ShortcutButton.BusIdOverride, plus an
+    // exported Buses table so custom (user-added) buses survive a
+    // round-trip with their settings. Older schema-2 bundles still
+    // import — missing BusId falls back to the default (Music) and
+    // missing overrides stay null.
+    private const int CurrentSchemaVersion = 3;
 
     private readonly ISoundBoardDbContextFactory _dbFactory;
     private readonly LibraryManagerService _libraryManager;
@@ -69,6 +75,74 @@ public class LibraryTransferService : ILibraryTransferService
     private async Task<ImportResult> ImportMergeAsync(ExportDocument doc, ImportOptions options, PathResolver resolver, SoundBoardDbContext db)
     {
         var result = new ImportResult();
+
+        // === Buses ===
+        //
+        // Build a source-bus-id → destination-bus-id map so every Track,
+        // Preset.BusIdOverride, and ShortcutButton.BusIdOverride can be
+        // remapped consistently below. Reconciliation rules:
+        //
+        //   • Built-in buses (IsBuiltIn=true) have pinned ids (Music=1,
+        //     Ambient=2, SFX=3) on both sides, so the map is identity:
+        //     source.Id → source.Id. We trust that the destination DB's
+        //     migration runner seeded the same ids.
+        //   • Custom buses (IsBuiltIn=false) match by Name
+        //     (case-insensitive). A name hit maps source.Id → existing
+        //     destination row's Id. A miss inserts a new Bus carrying
+        //     the source's settings (Name, Order, Color, Volume,
+        //     IsBuiltIn=false) and maps source.Id → the new row's Id.
+        //
+        // Schema-2 bundles have no exported Buses; the map stays empty
+        // and ResolveBusId / ResolveBusOverride fall back to the
+        // built-in default (Music) for tracks and null for overrides.
+        var busIdMap = new Dictionary<int, int>();
+        if (doc.Buses.Count > 0)
+        {
+            var existingByName = await db.Buses.AsNoTracking()
+                .ToDictionaryAsync(b => b.Name, b => b.Id, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var eb in doc.Buses)
+            {
+                if (eb.IsBuiltIn)
+                {
+                    // Built-ins are 1/2/3 on every install — trust the id.
+                    busIdMap[eb.Id] = eb.Id;
+                    continue;
+                }
+                if (existingByName.TryGetValue(eb.Name, out var destId))
+                {
+                    busIdMap[eb.Id] = destId;
+                    continue;
+                }
+                // Custom bus the destination doesn't have yet — clone it.
+                var freshBus = new Bus
+                {
+                    Name = eb.Name,
+                    Order = eb.Order,
+                    Color = eb.Color,
+                    Volume = eb.Volume,
+                    IsBuiltIn = false,
+                };
+                db.Buses.Add(freshBus);
+                await db.SaveChangesAsync();
+                busIdMap[eb.Id] = freshBus.Id;
+                existingByName[eb.Name] = freshBus.Id;
+            }
+        }
+
+        // Look up the imported source bus id in the map; fall back to
+        // the destination's default bus when the source isn't tracked
+        // (schema-2 bundle without exported Buses) or when a custom bus
+        // failed to reconcile.
+        int ResolveBusId(int sourceBusId) =>
+            busIdMap.TryGetValue(sourceBusId, out var mapped)
+                ? mapped
+                : BuiltInBusIds.DefaultForNewTracks;
+
+        int? ResolveBusOverride(int? sourceBusId) =>
+            sourceBusId.HasValue && busIdMap.TryGetValue(sourceBusId.Value, out var mapped)
+                ? mapped
+                : (int?)null;
 
         // === Tracks ===
         //
@@ -119,7 +193,7 @@ public class LibraryTransferService : ILibraryTransferService
                         var existing = await db.Tracks.FindAsync(keepId.Value);
                         if (existing != null)
                         {
-                            ApplyExportToTrack(existing, et, resolved);
+                            ApplyExportToTrack(existing, et, resolved, ResolveBusId(et.BusId));
                             await db.SaveChangesAsync();
                             trackIdMap[et.Id] = existing.Id;
                             result.SuccessfullyImported.Add(existing);
@@ -133,7 +207,7 @@ public class LibraryTransferService : ILibraryTransferService
                 else if (options.DuplicateHandling == DuplicatePolicy.AllowDuplicates)
                 {
                     var unique = trackRegistry.MakeUnique(et.Name);
-                    var renamed = BuildTrackFromExport(et, resolved);
+                    var renamed = BuildTrackFromExport(et, resolved, ResolveBusId(et.BusId));
                     renamed.Name = unique;
                     db.Tracks.Add(renamed);
                     await db.SaveChangesAsync();
@@ -146,7 +220,7 @@ public class LibraryTransferService : ILibraryTransferService
             }
 
             // No collision: fresh insert at original name.
-            var fresh = BuildTrackFromExport(et, resolved);
+            var fresh = BuildTrackFromExport(et, resolved, ResolveBusId(et.BusId));
             db.Tracks.Add(fresh);
             await db.SaveChangesAsync();
             trackIdMap[et.Id] = fresh.Id;
@@ -198,7 +272,7 @@ public class LibraryTransferService : ILibraryTransferService
                 }
             }
 
-            var preset = BuildPresetFromExport(ep);
+            var preset = BuildPresetFromExport(ep, ResolveBusOverride(ep.BusIdOverride));
             preset.Name = nameToUse;
             db.Presets.Add(preset);
             await db.SaveChangesAsync();
@@ -333,6 +407,7 @@ public class LibraryTransferService : ILibraryTransferService
                     Label = btn.Label, ImagePath = btn.ImagePath, Icon = btn.Icon,
                     Row = btn.Row, Column = btn.Column,
                     TrackId = newTrackId, PresetId = newPresetId,
+                    BusIdOverride = ResolveBusOverride(btn.BusIdOverride),
                 });
             }
             result.ShortcutsImported++;
@@ -398,7 +473,7 @@ public class LibraryTransferService : ILibraryTransferService
         }
     }
 
-    private static void ApplyExportToTrack(Track existing, ExportedTrack et, string resolvedPath)
+    private static void ApplyExportToTrack(Track existing, ExportedTrack et, string resolvedPath, int resolvedBusId)
     {
         existing.Name = et.Name;
         existing.FilePath = resolvedPath;
@@ -411,6 +486,7 @@ public class LibraryTransferService : ILibraryTransferService
         existing.FadeOutDuration = new TimeSpan(et.FadeOutTicks);
         existing.StartDelay      = new TimeSpan(et.StartDelayTicks);
         existing.IsLooping = et.IsLooping;
+        existing.BusId = resolvedBusId;
     }
 
     // ── Import into a fresh library file ─────────────────────────────────────
@@ -447,7 +523,7 @@ public class LibraryTransferService : ILibraryTransferService
 
     // ── Mapping helpers ──────────────────────────────────────────────────────
 
-    private static Track BuildTrackFromExport(ExportedTrack et, string resolvedPath) => new()
+    private static Track BuildTrackFromExport(ExportedTrack et, string resolvedPath, int resolvedBusId) => new()
     {
         Name = et.Name, FilePath = resolvedPath, Tags = et.Tags ?? "", Icon = et.Icon,
         Volume = et.Volume,
@@ -457,11 +533,13 @@ public class LibraryTransferService : ILibraryTransferService
         FadeOutDuration = new TimeSpan(et.FadeOutTicks),
         StartDelay      = new TimeSpan(et.StartDelayTicks),
         IsLooping = et.IsLooping,
+        BusId = resolvedBusId,
     };
 
-    private static Preset BuildPresetFromExport(ExportedPreset ep) => new()
+    private static Preset BuildPresetFromExport(ExportedPreset ep, int? resolvedBusOverride) => new()
     {
         Name = ep.Name, Icon = ep.Icon,
+        BusIdOverride = resolvedBusOverride,
     };
 
     private static PresetTrack BuildPresetTrackFromExport(ExportedPresetTrack pt, int newPresetId, int newTrackId) => new()
@@ -489,6 +567,14 @@ public class LibraryTransferService : ILibraryTransferService
         {
             Schema = CurrentSchemaVersion,
             ExportedAt = DateTime.UtcNow,
+            Buses = await db.Buses
+                .AsNoTracking()
+                .OrderBy(b => b.Order).ThenBy(b => b.Id)
+                .Select(b => new ExportedBus
+                {
+                    Id = b.Id, Name = b.Name, Order = b.Order,
+                    Color = b.Color, IsBuiltIn = b.IsBuiltIn, Volume = b.Volume,
+                }).ToListAsync(),
             Tracks = await db.Tracks
                 .AsNoTracking()
                 .Select(t => new ExportedTrack
@@ -501,6 +587,7 @@ public class LibraryTransferService : ILibraryTransferService
                     FadeOutTicks = t.FadeOutDuration.Ticks,
                     StartDelayTicks = t.StartDelay.Ticks,
                     IsLooping = t.IsLooping,
+                    BusId = t.BusId,
                 }).ToListAsync(),
             Presets = await db.Presets
                 .AsNoTracking()
@@ -508,6 +595,7 @@ public class LibraryTransferService : ILibraryTransferService
                 .Select(p => new ExportedPreset
                 {
                     Id = p.Id, Name = p.Name, Icon = p.Icon,
+                    BusIdOverride = p.BusIdOverride,
                     Tracks = p.Tracks.OrderBy(t => t.Order).Select(pt => new ExportedPresetTrack
                     {
                         TrackId = pt.TrackId, Order = pt.Order,
@@ -543,6 +631,7 @@ public class LibraryTransferService : ILibraryTransferService
                         Label = b.Label, ImagePath = b.ImagePath, Icon = b.Icon,
                         Row = b.Row, Column = b.Column,
                         TrackId = b.TrackId, PresetId = b.PresetId,
+                        BusIdOverride = b.BusIdOverride,
                     }).ToList()
                 }).ToListAsync(),
         };
@@ -562,6 +651,24 @@ public class LibraryTransferService : ILibraryTransferService
         public List<ExportedPreset> Presets { get; set; } = new();
         public List<ExportedPlaylist> Playlists { get; set; } = new();
         public List<ExportedShortcutPage> ShortcutPages { get; set; } = new();
+
+        // Schema 3+: the source library's bus table, so custom (non
+        // built-in) buses survive a round-trip and tracks can be
+        // remapped from source bus ids to destination bus ids at
+        // import time. Empty for schema-2 bundles — the import path
+        // falls back to BuiltInBusIds.DefaultForNewTracks for any
+        // tracks whose BusId can't be resolved.
+        public List<ExportedBus> Buses { get; set; } = new();
+    }
+
+    private sealed class ExportedBus
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public int Order { get; set; }
+        public string? Color { get; set; }
+        public bool IsBuiltIn { get; set; }
+        public float Volume { get; set; } = 1.0f;
     }
 
     private sealed class ExportedTrack
@@ -579,6 +686,12 @@ public class LibraryTransferService : ILibraryTransferService
         public long StartDelayTicks { get; set; }
         public bool IsLooping { get; set; }
 
+        /// <summary>Schema 3+: source library's Track.BusId. 0 means
+        /// "unset" (deserialized from a schema-2 bundle that has no
+        /// BusId field) and the importer falls back to the destination
+        /// library's default bus.</summary>
+        public int BusId { get; set; }
+
         // AutoTrimSilence was previously persisted here; the flag has been
         // replaced with an editor-side "Trim silence now" action. We still
         // deserialize the JSON field if present (no-op getter/setter) so
@@ -591,6 +704,13 @@ public class LibraryTransferService : ILibraryTransferService
         public int Id { get; set; }
         public string Name { get; set; } = "";
         public string? Icon { get; set; }
+
+        /// <summary>Schema 3+: preset-tier bus override; null = inherit
+        /// each PresetTrack's own Track.BusId. Schema-2 bundles have no
+        /// field and deserialize as null — the import preserves that
+        /// "inherit" behaviour.</summary>
+        public int? BusIdOverride { get; set; }
+
         public List<ExportedPresetTrack> Tracks { get; set; } = new();
     }
 
@@ -639,5 +759,10 @@ public class LibraryTransferService : ILibraryTransferService
         public int Column { get; set; }
         public int? TrackId { get; set; }
         public int? PresetId { get; set; }
+
+        /// <summary>Schema 3+: shortcut-tier bus override (Track-targeting
+        /// shortcuts only; Preset/Playlist targets defer to their own
+        /// routing). Null = inherit. Schema-2 bundles deserialize as null.</summary>
+        public int? BusIdOverride { get; set; }
     }
 }
