@@ -60,14 +60,14 @@
                                                       FontSize="48"
                                                       Foreground="{Binding IconBrush}" />
                                 </Viewbox>
-                                <Border VerticalAlignment="Center" HorizontalAlignment="Center"
-                                        Background="{Binding LabelBackground}" CornerRadius="5"
-                                        Padding="6,3" Margin="4">
-                                    <TextBlock Text="{Binding Label}"
-                                               TextWrapping="Wrap" TextAlignment="Center"
-                                               FontWeight="Bold" Foreground="{Binding LabelForeground}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
+                                <controls:OutlinedTextBlock Text="{Binding Label}"
+                                                            FontSize="13" FontWeight="Bold"
+                                                            TextAlignment="Center"
+                                                            Foreground="{Binding LabelForeground}"
+                                                            Stroke="{Binding LabelOutline}" StrokeThickness="3"
+                                                            ShadowBrush="{Binding LabelShadow}"
+                                                            Margin="5"
+                                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Panel>
                         </Button>
                     </DataTemplate>

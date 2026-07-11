@@ -50,17 +50,26 @@ public partial class ShortcutButtonViewModel : ViewModelBase, IDisposable
     /// override when set, otherwise the theme's PanelBackground3.</summary>
     public IBrush ButtonBrush => ParseOr(_model.ButtonColor, "PanelBackground3", Color.FromRgb(0x33, 0x41, 0x55));
 
-    /// <summary>Scrim behind the label. Only shown when the label sits over
-    /// an icon or a custom button color (where the theme's text/surface
-    /// contrast can't be assumed); plain text-only buttons keep a
-    /// transparent background so the soundboard reads unchanged.</summary>
-    public IBrush LabelBackground =>
-        (HasIcon || HasCustomButtonColor) ? new SolidColorBrush(Color.FromArgb(0x99, 0, 0, 0)) : Brushes.Transparent;
+    // When the label sits over an icon or a custom button color the theme's
+    // text/surface contrast can't be assumed, so it renders as white text
+    // with a dark outline + drop shadow (legible over any backdrop) instead
+    // of covering the icon with a scrim. Plain text-only buttons keep the
+    // theme text color with no outline/shadow, so the soundboard reads
+    // unchanged.
+    private bool NeedsLegibilityHelp => HasIcon || HasCustomButtonColor;
 
-    /// <summary>Label text color. White over the scrim (icon / custom-color
-    /// case) so it reads on any backdrop; otherwise the theme's TextPrimary.</summary>
+    /// <summary>Label fill color.</summary>
     public IBrush LabelForeground =>
-        (HasIcon || HasCustomButtonColor) ? Brushes.White : (SafeResolve("TextPrimary") ?? Brushes.White);
+        NeedsLegibilityHelp ? Brushes.White : (SafeResolve("TextPrimary") ?? Brushes.White);
+
+    /// <summary>Label outline (glyph stroke) color, or transparent for plain
+    /// text buttons (no visible outline).</summary>
+    public IBrush LabelOutline =>
+        NeedsLegibilityHelp ? new SolidColorBrush(Color.FromArgb(0xDD, 0, 0, 0)) : Brushes.Transparent;
+
+    /// <summary>Label drop-shadow color, or transparent for plain buttons.</summary>
+    public IBrush LabelShadow =>
+        NeedsLegibilityHelp ? new SolidColorBrush(Color.FromArgb(0x99, 0, 0, 0)) : Brushes.Transparent;
 
     private static IBrush ParseOr(string? hex, string themeKey, Color hardFallback)
     {

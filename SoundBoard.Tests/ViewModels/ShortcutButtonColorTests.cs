@@ -40,30 +40,34 @@ public sealed class ShortcutButtonColorTests
     }
 
     [Fact]
-    public void PlainTextButton_HasNoLabelScrim()
+    public void PlainTextButton_HasNoOutlineOrShadow()
     {
-        // No icon, no custom color: the label stays transparent so a grid of
-        // text buttons reads unchanged.
+        // No icon, no custom color: the label renders as plain theme text
+        // with no outline/shadow so a grid of text buttons reads unchanged.
         var vm = Vm(new ShortcutButton { Label = "Dice Pool" });
-        vm.LabelBackground.Should().Be(Brushes.Transparent);
+        vm.LabelOutline.Should().Be(Brushes.Transparent);
+        vm.LabelShadow.Should().Be(Brushes.Transparent);
     }
 
     [Fact]
-    public void ButtonWithIcon_GetsScrimAndWhiteLabel()
+    public void ButtonWithIcon_GetsOutlineShadowAndWhiteLabel()
     {
         var vm = Vm(new ShortcutButton { Label = "Battle", Icon = "ra-dragon" });
-        vm.LabelBackground.Should().NotBe(Brushes.Transparent);
         vm.LabelForeground.Should().Be(Brushes.White);
+        vm.LabelOutline.Should().NotBe(Brushes.Transparent);
+        vm.LabelShadow.Should().NotBe(Brushes.Transparent);
     }
 
     [Fact]
-    public void ButtonWithCustomColorButNoIcon_GetsScrimAndWhiteLabel()
+    public void ButtonWithCustomColorButNoIcon_GetsOutlineShadowAndWhiteLabel()
     {
         // A custom button color also breaks the theme's text/surface contrast
-        // assumption, so the scrim + white label kicks in even without an icon.
+        // assumption, so the outline + shadow + white label kicks in even
+        // without an icon.
         var vm = Vm(new ShortcutButton { Label = "Alarm", ButtonColor = "#7A1F1F" });
-        vm.LabelBackground.Should().NotBe(Brushes.Transparent);
         vm.LabelForeground.Should().Be(Brushes.White);
+        vm.LabelOutline.Should().NotBe(Brushes.Transparent);
+        vm.LabelShadow.Should().NotBe(Brushes.Transparent);
     }
 
     [Fact]
