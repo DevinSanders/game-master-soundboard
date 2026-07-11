@@ -45,7 +45,10 @@
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Disabled"
                           PointerWheelChanged="OnPageTabsWheel">
-                <TabStrip x:Name="PageTabs"
+                <!-- Bottom inset keeps the tab labels clear of the overlay
+                     horizontal scrollbar that floats over the viewport's
+                     bottom edge when the tabs overflow. -->
+                <TabStrip x:Name="PageTabs" Margin="0,0,0,10"
                           ItemsSource="{Binding VisiblePages}" SelectedItem="{Binding SelectedPage}">
                     <TabStrip.ItemTemplate>
                         <DataTemplate>
