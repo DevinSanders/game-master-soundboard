@@ -49,22 +49,26 @@
                                 BorderThickness="3"
                                 CornerRadius="8"
                                 Margin="10"
-                                Background="{DynamicResource PanelBackground3}"
+                                Background="{Binding ButtonBrush}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                            <Grid RowDefinitions="*, Auto">
-                                <!-- TextPrimary for both: guaranteed to contrast with
-                                     the PanelBackground3 button surface in every theme.
-                                     See ShortcutsView for the full rationale. -->
-                                <controls:RpgIcon Grid.Row="0" IconName="{Binding EffectiveIcon}"
-                                                  FontSize="36"
-                                                  Foreground="{DynamicResource TextPrimary}"
-                                                  IsVisible="{Binding HasIcon}"
-                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <TextBlock Grid.Row="1" Text="{Binding Label}"
-                                           TextWrapping="Wrap" TextAlignment="Center"
-                                           FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5" />
-                            </Grid>
+                            <!-- Full-size centered icon layer with the label in front.
+                                 Mirrors ShortcutsView; see it for the full rationale. -->
+                            <Panel>
+                                <Viewbox IsVisible="{Binding HasIcon}" Stretch="Uniform" Margin="14"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <controls:RpgIcon IconName="{Binding EffectiveIcon}"
+                                                      FontSize="48"
+                                                      Foreground="{Binding IconBrush}" />
+                                </Viewbox>
+                                <Border VerticalAlignment="Center" HorizontalAlignment="Center"
+                                        Background="{Binding LabelBackground}" CornerRadius="5"
+                                        Padding="6,3" Margin="4">
+                                    <TextBlock Text="{Binding Label}"
+                                               TextWrapping="Wrap" TextAlignment="Center"
+                                               FontWeight="Bold" Foreground="{Binding LabelForeground}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </Panel>
                         </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

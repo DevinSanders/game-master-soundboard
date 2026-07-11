@@ -54,6 +54,10 @@ public static class SchemaMigrations
         // ── Add new migrations below this line ─────────────────────────────
         (Baseline + 1, "Add IsHidden to ShortcutPages",
             "ALTER TABLE ShortcutPages ADD COLUMN IsHidden INTEGER NOT NULL DEFAULT 0"),
+        (Baseline + 2, "Add IconColor to ShortcutButtons",
+            "ALTER TABLE ShortcutButtons ADD COLUMN IconColor TEXT NULL"),
+        (Baseline + 3, "Add ButtonColor to ShortcutButtons",
+            "ALTER TABLE ShortcutButtons ADD COLUMN ButtonColor TEXT NULL"),
     };
 
     public static void Apply(SoundBoardDbContext db)

@@ -33,6 +33,51 @@ public partial class ShortcutButtonViewModel : ViewModelBase, IDisposable
 
     public bool HasIcon => !string.IsNullOrEmpty(EffectiveIcon);
 
+    /// <summary>Per-button icon color hex, or null to inherit the theme.</summary>
+    public string? IconColor => _model.IconColor;
+
+    /// <summary>Per-button background color hex, or null to inherit the theme.</summary>
+    public string? ButtonColor => _model.ButtonColor;
+
+    private bool HasCustomButtonColor => !string.IsNullOrWhiteSpace(_model.ButtonColor);
+
+    /// <summary>Brush the icon glyph renders with: the per-button override
+    /// when set, otherwise the theme's TextPrimary. Resolved at build time
+    /// (the button VM is rebuilt whenever the page reloads).</summary>
+    public IBrush IconBrush => ParseOr(_model.IconColor, "TextPrimary", Colors.White);
+
+    /// <summary>Brush the button paints its background with: the per-button
+    /// override when set, otherwise the theme's PanelBackground3.</summary>
+    public IBrush ButtonBrush => ParseOr(_model.ButtonColor, "PanelBackground3", Color.FromRgb(0x33, 0x41, 0x55));
+
+    /// <summary>Scrim behind the label. Only shown when the label sits over
+    /// an icon or a custom button color (where the theme's text/surface
+    /// contrast can't be assumed); plain text-only buttons keep a
+    /// transparent background so the soundboard reads unchanged.</summary>
+    public IBrush LabelBackground =>
+        (HasIcon || HasCustomButtonColor) ? new SolidColorBrush(Color.FromArgb(0x99, 0, 0, 0)) : Brushes.Transparent;
+
+    /// <summary>Label text color. White over the scrim (icon / custom-color
+    /// case) so it reads on any backdrop; otherwise the theme's TextPrimary.</summary>
+    public IBrush LabelForeground =>
+        (HasIcon || HasCustomButtonColor) ? Brushes.White : (SafeResolve("TextPrimary") ?? Brushes.White);
+
+    private static IBrush ParseOr(string? hex, string themeKey, Color hardFallback)
+    {
+        if (!string.IsNullOrWhiteSpace(hex) && Color.TryParse(hex, out var c))
+            return new SolidColorBrush(c);
+        return SafeResolve(themeKey) ?? new SolidColorBrush(hardFallback);
+    }
+
+    // These getters run during XAML binding and must never throw. The theme
+    // lookup touches Application.Current.Resources; guard it so an odd
+    // resource/thread state can't take down the render.
+    private static IBrush? SafeResolve(string key)
+    {
+        try { return ThemeBrushes.Resolve(key); }
+        catch { return null; }
+    }
+
     /// <summary>True when this button targets a <see cref="Track"/>.
     /// The bus-override menu item is hidden for Preset / Playlist
     /// shortcuts (those defer to their target's own routing — Playlists

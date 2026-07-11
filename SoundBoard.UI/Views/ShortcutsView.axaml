@@ -115,12 +115,12 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Button Command="{Binding ClickCommand}" 
-                                BorderBrush="{Binding OutlineBrush}" 
-                                BorderThickness="3" 
-                                CornerRadius="8" 
-                                Margin="10" 
-                                Background="{DynamicResource PanelBackground3}" 
+                        <Button Command="{Binding ClickCommand}"
+                                BorderBrush="{Binding OutlineBrush}"
+                                BorderThickness="3"
+                                CornerRadius="8"
+                                Margin="10"
+                                Background="{Binding ButtonBrush}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                 DragDrop.AllowDrop="True"
                                 DragDrop.DragOver="OnButtonDragOver"
@@ -130,6 +130,8 @@
                                 <ContextMenu>
                                     <MenuItem Header="✏ Rename..." Click="OnRenameButtonClicked" />
                                     <MenuItem Header="🎨 Set icon..." Click="OnSetButtonIconClicked" />
+                                    <MenuItem Header="🖌 Icon color..." Click="OnSetButtonIconColorClicked" />
+                                    <MenuItem Header="🟦 Button color..." Click="OnSetButtonColorClicked" />
                                     <MenuItem Header="🎛 FX Chain..." Click="OnConfigureShortcutSamplersClicked" />
                                     <MenuItem Header="🎚 Bus override..." Click="OnSetButtonBusOverrideClicked"
                                               IsVisible="{Binding IsTrackTarget}" />
@@ -137,25 +139,28 @@
                                     <MenuItem Header="🗑 Remove" Click="OnRemoveButtonClicked" />
                                 </ContextMenu>
                             </Button.ContextMenu>
-                            <Grid RowDefinitions="*, Auto">
-                                <!-- Icon + label both use TextPrimary: the button
-                                     background is a panel surface (PanelBackground3),
-                                     and TextPrimary is the semantic key guaranteed to
-                                     contrast with the app's surfaces in every theme.
-                                     PrimaryAccent / OnPrimaryAccent are accent-relative
-                                     and can collapse into the surface under plugin
-                                     themes (icon vanishes) or the light theme (label
-                                     unreadable). -->
-                                <controls:RpgIcon Grid.Row="0" IconName="{Binding EffectiveIcon}"
-                                                  FontSize="36"
-                                                  Foreground="{DynamicResource TextPrimary}"
-                                                  IsVisible="{Binding HasIcon}"
-                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <TextBlock Grid.Row="1" Text="{Binding Label}"
-                                           TextWrapping="Wrap" TextAlignment="Center"
-                                           FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5" />
-                            </Grid>
+                            <!-- Icon is a full-size, always-centered background layer;
+                                 the label renders in front of it. When an icon (or a
+                                 custom button color) is present the label gets a scrim
+                                 + white text so it stays legible over any backdrop;
+                                 plain text-only buttons keep a transparent label
+                                 background and the theme text color. -->
+                            <Panel>
+                                <Viewbox IsVisible="{Binding HasIcon}" Stretch="Uniform" Margin="14"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <controls:RpgIcon IconName="{Binding EffectiveIcon}"
+                                                      FontSize="48"
+                                                      Foreground="{Binding IconBrush}" />
+                                </Viewbox>
+                                <Border VerticalAlignment="Center" HorizontalAlignment="Center"
+                                        Background="{Binding LabelBackground}" CornerRadius="5"
+                                        Padding="6,3" Margin="4">
+                                    <TextBlock Text="{Binding Label}"
+                                               TextWrapping="Wrap" TextAlignment="Center"
+                                               FontWeight="Bold" Foreground="{Binding LabelForeground}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </Panel>
                         </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

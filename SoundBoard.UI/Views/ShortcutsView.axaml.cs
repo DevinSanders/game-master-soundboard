@@ -390,6 +390,28 @@ public partial class ShortcutsView : UserControl
             Vm.SetButtonIconDirect(btnVm.ModelId, result.Icon);
         }, "Set button icon");
 
+    private async void OnSetButtonIconColorClicked(object? sender, RoutedEventArgs e)
+        => await SoundBoard.UI.Services.UiOps.RunGuarded(async () =>
+        {
+            if (sender is not MenuItem mi || mi.DataContext is not ViewModels.ShortcutButtonViewModel btnVm) return;
+            if (Vm == null) return;
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            if (owner == null) return;
+            var result = await Services.ColorPickerService.PickAsync(owner, "Icon color", btnVm.IconColor);
+            if (result.Changed) Vm.SetButtonIconColorDirect(btnVm.ModelId, result.Color);
+        }, "Set icon color");
+
+    private async void OnSetButtonColorClicked(object? sender, RoutedEventArgs e)
+        => await SoundBoard.UI.Services.UiOps.RunGuarded(async () =>
+        {
+            if (sender is not MenuItem mi || mi.DataContext is not ViewModels.ShortcutButtonViewModel btnVm) return;
+            if (Vm == null) return;
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            if (owner == null) return;
+            var result = await Services.ColorPickerService.PickAsync(owner, "Button color", btnVm.ButtonColor);
+            if (result.Changed) Vm.SetButtonColorDirect(btnVm.ModelId, result.Color);
+        }, "Set button color");
+
     private void OnConfigureShortcutSamplersClicked(object? sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem mi || mi.DataContext is not ViewModels.ShortcutButtonViewModel btnVm) return;
