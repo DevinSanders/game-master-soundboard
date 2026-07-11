@@ -69,7 +69,7 @@ public partial class ShortcutButtonViewModel : ViewModelBase, IDisposable
 
     /// <summary>Label drop-shadow color, or transparent for plain buttons.</summary>
     public IBrush LabelShadow =>
-        NeedsLegibilityHelp ? new SolidColorBrush(Color.FromArgb(0x99, 0, 0, 0)) : Brushes.Transparent;
+        NeedsLegibilityHelp ? new SolidColorBrush(Color.FromArgb(0xD8, 0, 0, 0)) : Brushes.Transparent;
 
     private static IBrush ParseOr(string? hex, string themeKey, Color hardFallback)
     {

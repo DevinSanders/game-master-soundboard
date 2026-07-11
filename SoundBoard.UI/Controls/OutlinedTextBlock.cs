@@ -63,8 +63,8 @@ public class OutlinedTextBlock : Control
     public FontFamily FontFamily { get => GetValue(FontFamilyProperty); set => SetValue(FontFamilyProperty, value); }
     public TextAlignment TextAlignment { get => GetValue(TextAlignmentProperty); set => SetValue(TextAlignmentProperty, value); }
 
-    // Shadow offset in device pixels. Fixed — a small, soft-looking drop.
-    private const double ShadowOffset = 1.5;
+    // Shadow offset in device pixels — the hard drop-shadow displacement.
+    private const double ShadowOffset = 2.5;
 
     private Geometry? _geometry;
     private Size _textSize;
@@ -89,8 +89,15 @@ public class OutlinedTextBlock : Control
         {
             TextAlignment = TextAlignment,
         };
+        // First lay out with the wrapping constraint to discover how wide the
+        // text actually is, then pin MaxTextWidth to that used width. Alignment
+        // (e.g. Center) then positions each line within the *actual* text box
+        // rather than the full wrap width — otherwise short lines get centered
+        // against the wider wrap bound and the whole label reads off-center
+        // inside the control's tight bounds.
         if (!double.IsInfinity(maxWidth) && maxWidth > 0)
             ft.MaxTextWidth = maxWidth;
+        ft.MaxTextWidth = ft.Width + 1;
 
         _textSize = new Size(ft.Width, ft.Height);
         _geometry = ft.BuildGeometry(new Point(0, 0));
