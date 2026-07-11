@@ -117,6 +117,10 @@ public class OutlinedTextBlock : Control
             Foreground ?? Brushes.White)
         {
             TextAlignment = TextAlignment,
+            // Never ellipsize: build the full, untrimmed multi-line geometry so
+            // the whole label exists to scroll. Overflow is handled by clipping
+            // + vertical auto-scroll, not by trimming.
+            Trimming = TextTrimming.None,
         };
         // First lay out with the wrapping constraint to discover how wide the
         // text actually is, then pin MaxTextWidth to that used width. Alignment
