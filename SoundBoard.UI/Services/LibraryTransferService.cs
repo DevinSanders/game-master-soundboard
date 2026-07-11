@@ -405,6 +405,7 @@ public class LibraryTransferService : ILibraryTransferService
                 {
                     ShortcutPageId = newPage.Id,
                     Label = btn.Label, ImagePath = btn.ImagePath, Icon = btn.Icon,
+                    IconColor = btn.IconColor, ButtonColor = btn.ButtonColor,
                     Row = btn.Row, Column = btn.Column,
                     TrackId = newTrackId, PresetId = newPresetId,
                     BusIdOverride = ResolveBusOverride(btn.BusIdOverride),
@@ -629,6 +630,7 @@ public class LibraryTransferService : ILibraryTransferService
                     Buttons = p.Buttons.OrderBy(b => b.Row).ThenBy(b => b.Column).Select(b => new ExportedShortcutButton
                     {
                         Label = b.Label, ImagePath = b.ImagePath, Icon = b.Icon,
+                        IconColor = b.IconColor, ButtonColor = b.ButtonColor,
                         Row = b.Row, Column = b.Column,
                         TrackId = b.TrackId, PresetId = b.PresetId,
                         BusIdOverride = b.BusIdOverride,
@@ -755,6 +757,13 @@ public class LibraryTransferService : ILibraryTransferService
         public string? Label { get; set; }
         public string? ImagePath { get; set; }
         public string? Icon { get; set; }
+
+        /// <summary>Schema 3+: per-button icon / background color overrides
+        /// (hex strings). Absent in older bundles → deserialize as null =
+        /// use the theme defaults.</summary>
+        public string? IconColor { get; set; }
+        public string? ButtonColor { get; set; }
+
         public int Row { get; set; }
         public int Column { get; set; }
         public int? TrackId { get; set; }

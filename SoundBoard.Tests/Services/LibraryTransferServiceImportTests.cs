@@ -620,6 +620,38 @@ public sealed class LibraryTransferServiceImportTests : IDisposable
         read.Tracks.Single().BusId.Should().Be(BuiltInBusIds.DefaultForNewTracks);
     }
 
+    [Fact]
+    public async Task Schema3_ShortcutIconAndButtonColor_RoundTrip()
+    {
+        var path = MakeAudioFile("horn.wav");
+        var jsonPath = WriteExport(new
+        {
+            Schema = 3,
+            ExportedAt = DateTime.UtcNow,
+            Tracks = new[] { new { Id = 1, Name = "War Horn", FilePath = path } },
+            Presets = Array.Empty<object>(),
+            Playlists = Array.Empty<object>(),
+            ShortcutPages = new[]
+            {
+                new { Id = 20, Name = "Board", OrderIndex = 0,
+                      Buttons = new[]
+                      {
+                          new { Label = "Horn", Row = 0, Column = 0, TrackId = (int?)1,
+                                Icon = "ra-horn-call", IconColor = "#F2C14E", ButtonColor = "#7A1F1F" }
+                      } }
+            },
+        });
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        var btn = read.ShortcutButtons.Single();
+        btn.Icon.Should().Be("ra-horn-call");
+        btn.IconColor.Should().Be("#F2C14E");
+        btn.ButtonColor.Should().Be("#7A1F1F");
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private string MakeAudioFile(string name)
