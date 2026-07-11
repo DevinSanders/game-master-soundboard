@@ -52,14 +52,17 @@
                                 Background="{DynamicResource PanelBackground3}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <Grid RowDefinitions="*, Auto">
+                                <!-- TextPrimary for both: guaranteed to contrast with
+                                     the PanelBackground3 button surface in every theme.
+                                     See ShortcutsView for the full rationale. -->
                                 <controls:RpgIcon Grid.Row="0" IconName="{Binding EffectiveIcon}"
                                                   FontSize="36"
-                                                  Foreground="{DynamicResource PrimaryAccent}"
+                                                  Foreground="{DynamicResource TextPrimary}"
                                                   IsVisible="{Binding HasIcon}"
                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <TextBlock Grid.Row="1" Text="{Binding Label}"
                                            TextWrapping="Wrap" TextAlignment="Center"
-                                           FontWeight="Bold" Foreground="{DynamicResource OnPrimaryAccent}"
+                                           FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5" />
                             </Grid>
                         </Button>
