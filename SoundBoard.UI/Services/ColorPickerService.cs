@@ -93,7 +93,8 @@ public static class ColorPickerService
             Width = 380,
             Height = 300,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = Brushes.Transparent,
+            Background = ThemeBrushes.Resolve("ContentBackground")
+                         ?? new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B)),
             ExtendClientAreaToDecorationsHint = true,
         };
 

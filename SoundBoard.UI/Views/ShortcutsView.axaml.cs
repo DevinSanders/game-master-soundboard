@@ -227,7 +227,8 @@ public partial class ShortcutsView : UserControl
             Width = 350,
             Height = 170,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = Avalonia.Media.Brushes.Transparent,
+            Background = SoundBoard.UI.Services.ThemeBrushes.Resolve("ContentBackground")
+                         ?? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(0x1E, 0x29, 0x3B)),
             ExtendClientAreaToDecorationsHint = true,
         };
 
