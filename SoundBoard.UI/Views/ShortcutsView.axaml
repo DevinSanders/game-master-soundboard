@@ -18,14 +18,19 @@
             <Setter Property="RenderTransform" Value="scale(1.04)" />
         </Style>
 
-        <!-- Fluent's Button template forces BorderBrush to a theme color on
-             :pointerover and :pressed, which would hide the playing/paused
-             outline. Re-bind to the Button's own BorderBrush (which is bound
-             to OutlineBrush on the VM) so the state colour shows through. -->
+        <!-- Fluent's Button template forces Background + BorderBrush to theme
+             colors on :pointerover and :pressed, which would hide the
+             playing/paused outline AND clobber the per-button background
+             color override. Re-bind both to the Button's own values (bound to
+             ButtonBrush / OutlineBrush on the VM) so the state colours show
+             through. Hover feedback still comes from the scale(1.04) transform
+             above. -->
         <Style Selector="ItemsControl > ContentPresenter > Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
             <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
         </Style>
         <Style Selector="ItemsControl > ContentPresenter > Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
             <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
         </Style>
     </UserControl.Styles>
