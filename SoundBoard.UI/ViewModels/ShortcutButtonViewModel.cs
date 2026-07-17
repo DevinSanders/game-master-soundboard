@@ -33,6 +33,60 @@ public partial class ShortcutButtonViewModel : ViewModelBase, IDisposable
 
     public bool HasIcon => !string.IsNullOrEmpty(EffectiveIcon);
 
+    /// <summary>Per-button icon color hex, or null to inherit the theme.</summary>
+    public string? IconColor => _model.IconColor;
+
+    /// <summary>Per-button background color hex, or null to inherit the theme.</summary>
+    public string? ButtonColor => _model.ButtonColor;
+
+    private bool HasCustomButtonColor => !string.IsNullOrWhiteSpace(_model.ButtonColor);
+
+    /// <summary>Brush the icon glyph renders with: the per-button override
+    /// when set, otherwise the theme's TextPrimary. Resolved at build time
+    /// (the button VM is rebuilt whenever the page reloads).</summary>
+    public IBrush IconBrush => ParseOr(_model.IconColor, "TextPrimary", Colors.White);
+
+    /// <summary>Brush the button paints its background with: the per-button
+    /// override when set, otherwise the theme's PanelBackground3.</summary>
+    public IBrush ButtonBrush => ParseOr(_model.ButtonColor, "PanelBackground3", Color.FromRgb(0x33, 0x41, 0x55));
+
+    // When the label sits over an icon or a custom button color the theme's
+    // text/surface contrast can't be assumed, so it renders as white text
+    // with a dark outline + drop shadow (legible over any backdrop) instead
+    // of covering the icon with a scrim. Plain text-only buttons keep the
+    // theme text color with no outline/shadow, so the soundboard reads
+    // unchanged.
+    private bool NeedsLegibilityHelp => HasIcon || HasCustomButtonColor;
+
+    /// <summary>Label fill color.</summary>
+    public IBrush LabelForeground =>
+        NeedsLegibilityHelp ? Brushes.White : (SafeResolve("TextPrimary") ?? Brushes.White);
+
+    /// <summary>Label outline (glyph stroke) color, or transparent for plain
+    /// text buttons (no visible outline).</summary>
+    public IBrush LabelOutline =>
+        NeedsLegibilityHelp ? new SolidColorBrush(Color.FromArgb(0xDD, 0, 0, 0)) : Brushes.Transparent;
+
+    /// <summary>Label drop-shadow color, or transparent for plain buttons.</summary>
+    public IBrush LabelShadow =>
+        NeedsLegibilityHelp ? new SolidColorBrush(Color.FromArgb(0xD8, 0, 0, 0)) : Brushes.Transparent;
+
+    private static IBrush ParseOr(string? hex, string themeKey, Color hardFallback)
+    {
+        if (!string.IsNullOrWhiteSpace(hex) && Color.TryParse(hex, out var c))
+            return new SolidColorBrush(c);
+        return SafeResolve(themeKey) ?? new SolidColorBrush(hardFallback);
+    }
+
+    // These getters run during XAML binding and must never throw. The theme
+    // lookup touches Application.Current.Resources; guard it so an odd
+    // resource/thread state can't take down the render.
+    private static IBrush? SafeResolve(string key)
+    {
+        try { return ThemeBrushes.Resolve(key); }
+        catch { return null; }
+    }
+
     /// <summary>True when this button targets a <see cref="Track"/>.
     /// The bus-override menu item is hidden for Preset / Playlist
     /// shortcuts (those defer to their target's own routing — Playlists

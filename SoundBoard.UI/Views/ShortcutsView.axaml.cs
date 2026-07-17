@@ -40,6 +40,13 @@ public partial class ShortcutsView : UserControl
     private TabStrip? _pageTabs;
     private GhostCardReorderController<ShortcutPage>? _tabReorder;
 
+    /// <summary>Top inset applied to the content of the hand-built rename /
+    /// bus-override dialogs. Those windows extend the client area under the
+    /// OS chrome (<see cref="Window.ExtendClientAreaToDecorationsHint"/>) for
+    /// a frameless look, so their content must reserve this much space to sit
+    /// below the caption / window-control region instead of under it.</summary>
+    private const double CaptionGutter = 30;
+
     public ShortcutsView()
     {
         InitializeComponent();
@@ -210,21 +217,25 @@ public partial class ShortcutsView : UserControl
     {
         if (Vm == null) return;
 
-        // Create a simple inline rename dialog
+        // Create a simple inline rename dialog. The client area is extended
+        // under the window chrome for a frameless look, so the content panel
+        // reserves a top gutter (CaptionGutter) to clear the drag/caption
+        // region — otherwise the textbox rides up under the title bar.
         var dialog = new Window
         {
             Title = "Rename Page",
             Width = 350,
-            Height = 150,
+            Height = 170,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = Avalonia.Media.Brushes.Transparent,
+            Background = SoundBoard.UI.Services.ThemeBrushes.Resolve("ContentBackground")
+                         ?? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(0x1E, 0x29, 0x3B)),
             ExtendClientAreaToDecorationsHint = true,
         };
 
         var textBox = new TextBox
         {
             Text = page.Name,
-            Margin = new Thickness(20, 20, 20, 10),
+            Margin = new Thickness(20, 12, 20, 10),
             FontSize = 16,
         };
 
@@ -258,7 +269,7 @@ public partial class ShortcutsView : UserControl
             }
         };
 
-        var panel = new StackPanel();
+        var panel = new StackPanel { Margin = new Thickness(0, CaptionGutter, 0, 0) };
         panel.Children.Add(textBox);
         panel.Children.Add(saveButton);
         dialog.Content = panel;
@@ -310,7 +321,7 @@ public partial class ShortcutsView : UserControl
             {
                 Title = "Rename Button",
                 Width = 350,
-                Height = 150,
+                Height = 170,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Background = Avalonia.Media.Brushes.Transparent,
                 ExtendClientAreaToDecorationsHint = true,
@@ -319,7 +330,7 @@ public partial class ShortcutsView : UserControl
             var textBox = new TextBox
             {
                 Text = btnVm.Label ?? "",
-                Margin = new Thickness(20, 20, 20, 10),
+                Margin = new Thickness(20, 12, 20, 10),
                 FontSize = 16,
             };
 
@@ -351,7 +362,7 @@ public partial class ShortcutsView : UserControl
                 }
             };
 
-            var panel = new StackPanel();
+            var panel = new StackPanel { Margin = new Thickness(0, CaptionGutter, 0, 0) };
             panel.Children.Add(textBox);
             panel.Children.Add(saveButton);
             dialog.Content = panel;
@@ -379,6 +390,28 @@ public partial class ShortcutsView : UserControl
             var result = await Services.IconPickerService.PickAsync(owner, btnVm.ButtonModel.Icon);
             Vm.SetButtonIconDirect(btnVm.ModelId, result.Icon);
         }, "Set button icon");
+
+    private async void OnSetButtonIconColorClicked(object? sender, RoutedEventArgs e)
+        => await SoundBoard.UI.Services.UiOps.RunGuarded(async () =>
+        {
+            if (sender is not MenuItem mi || mi.DataContext is not ViewModels.ShortcutButtonViewModel btnVm) return;
+            if (Vm == null) return;
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            if (owner == null) return;
+            var result = await Services.ColorPickerService.PickAsync(owner, "Icon color", btnVm.IconColor);
+            if (result.Changed) Vm.SetButtonIconColorDirect(btnVm.ModelId, result.Color);
+        }, "Set icon color");
+
+    private async void OnSetButtonColorClicked(object? sender, RoutedEventArgs e)
+        => await SoundBoard.UI.Services.UiOps.RunGuarded(async () =>
+        {
+            if (sender is not MenuItem mi || mi.DataContext is not ViewModels.ShortcutButtonViewModel btnVm) return;
+            if (Vm == null) return;
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            if (owner == null) return;
+            var result = await Services.ColorPickerService.PickAsync(owner, "Button color", btnVm.ButtonColor);
+            if (result.Changed) Vm.SetButtonColorDirect(btnVm.ModelId, result.Color);
+        }, "Set button color");
 
     private void OnConfigureShortcutSamplersClicked(object? sender, RoutedEventArgs e)
     {
@@ -435,7 +468,7 @@ public partial class ShortcutsView : UserControl
             {
                 Title = "Bus Override",
                 Width = 380,
-                Height = 170,
+                Height = 200,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 Background = Avalonia.Media.Brushes.Transparent,
                 ExtendClientAreaToDecorationsHint = true,
@@ -448,11 +481,11 @@ public partial class ShortcutsView : UserControl
                 dialog.Close();
             };
 
-            var panel = new StackPanel();
+            var panel = new StackPanel { Margin = new Thickness(0, CaptionGutter, 0, 0) };
             panel.Children.Add(new TextBlock
             {
                 Text = "Force this shortcut's track through a specific bus, or leave as 'Inherit'.",
-                Margin = new Thickness(20, 20, 20, 4),
+                Margin = new Thickness(20, 8, 20, 4),
                 FontSize = 12,
             });
             panel.Children.Add(combo);

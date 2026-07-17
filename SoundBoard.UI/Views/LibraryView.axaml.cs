@@ -27,6 +27,12 @@ public partial class LibraryView : UserControl
 
     private readonly Services.DragInitiator _drag = new();
 
+    /// <summary>The track under the pointer at the last press. Captured
+    /// directly from the pressed row's DataContext rather than read back
+    /// from the DataGrid's selection — see <see cref="OnGridPointerPressed"/>
+    /// for why the selection alone is unreliable.</summary>
+    private Track? _pressedTrack;
+
     public LibraryView()
     {
         InitializeComponent();
@@ -39,17 +45,49 @@ public partial class LibraryView : UserControl
     }
 
     private void OnGridPointerPressed(object? sender, PointerPressedEventArgs e)
-        => _drag.NotifyPressed(e, TrackGrid);
+    {
+        _drag.NotifyPressed(e, TrackGrid);
+
+        // Resolve the track from the row physically under the pointer and
+        // make it the selection — for BOTH mouse buttons. Two DataGrid
+        // behaviours make relying on SelectedItem alone unsafe here:
+        //  1. Right-click does NOT select a row, so the "Send to Soundboard"
+        //     context menu would otherwise act on a stale SelectedTrack.
+        //  2. With an active filter/sort the grid's SelectedItem can lag the
+        //     visually-clicked row, so even a left-click drag could carry the
+        //     wrong track.
+        // Reading the pressed row's own DataContext sidesteps both, so every
+        // shortcut-creation path targets exactly the row the user clicked.
+        _pressedTrack = ResolveRowTrack(e.Source);
+        if (_pressedTrack != null && DataContext is ViewModels.LibraryViewModel vm)
+            vm.SelectedTrack = _pressedTrack;
+    }
 
     private async void OnGridPointerMoved(object? sender, PointerEventArgs e)
     {
         if (!_drag.ShouldStartDrag(e, TrackGrid)) return;
-        if (TrackGrid.SelectedItem is not Track track) return;
+        var track = _pressedTrack ?? TrackGrid.SelectedItem as Track;
+        if (track == null) return;
         _drag.MarkDragStarted();
 
         var dragData = new DataTransfer();
         dragData.Add(DataTransferItem.Create(TrackDragFormat, track));
         await DragDrop.DoDragDropAsync(_drag.SynthesizePressedArgs(e, TrackGrid), dragData, DragDropEffects.Copy);
+    }
+
+    /// <summary>Walk up from the hit visual to the owning
+    /// <see cref="DataGridRow"/> and return its bound <see cref="Track"/>,
+    /// or null if the press landed outside a data row (header, empty area).</summary>
+    private static Track? ResolveRowTrack(object? source)
+    {
+        var visual = source as Visual;
+        while (visual != null)
+        {
+            if (visual is DataGridRow row)
+                return row.DataContext as Track;
+            visual = visual.GetVisualParent();
+        }
+        return null;
     }
 
     // File drop import (external drag-and-drop of audio files INTO the library)

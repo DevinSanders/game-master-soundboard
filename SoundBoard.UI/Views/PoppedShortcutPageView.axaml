@@ -18,13 +18,16 @@
             <Setter Property="RenderTransform" Value="scale(1.04)" />
         </Style>
 
-        <!-- Fluent's Button template forces BorderBrush to a theme color on
-             :pointerover and :pressed, which would hide the playing/paused
-             outline. Re-bind to the Button's own BorderBrush. -->
+        <!-- Fluent's Button template forces Background + BorderBrush to theme
+             colors on :pointerover and :pressed, hiding the playing/paused
+             outline and the per-button background color. Re-bind both to the
+             Button's own values so they show through. -->
         <Style Selector="ItemsControl > ContentPresenter > Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
             <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
         </Style>
         <Style Selector="ItemsControl > ContentPresenter > Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
             <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
         </Style>
     </UserControl.Styles>
@@ -49,19 +52,26 @@
                                 BorderThickness="3"
                                 CornerRadius="8"
                                 Margin="10"
-                                Background="{DynamicResource PanelBackground3}"
+                                Background="{Binding ButtonBrush}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                            <Grid RowDefinitions="*, Auto">
-                                <controls:RpgIcon Grid.Row="0" IconName="{Binding EffectiveIcon}"
-                                                  FontSize="36"
-                                                  Foreground="{DynamicResource PrimaryAccent}"
-                                                  IsVisible="{Binding HasIcon}"
-                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <TextBlock Grid.Row="1" Text="{Binding Label}"
-                                           TextWrapping="Wrap" TextAlignment="Center"
-                                           FontWeight="Bold" Foreground="{DynamicResource OnPrimaryAccent}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5" />
-                            </Grid>
+                            <!-- Full-size centered icon layer with the label in front.
+                                 Mirrors ShortcutsView; see it for the full rationale. -->
+                            <Panel>
+                                <Viewbox IsVisible="{Binding HasIcon}" Stretch="Uniform" Margin="14"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <controls:RpgIcon IconName="{Binding EffectiveIcon}"
+                                                      FontSize="48"
+                                                      Foreground="{Binding IconBrush}" />
+                                </Viewbox>
+                                <controls:OutlinedTextBlock Text="{Binding Label}"
+                                                            FontSize="13" FontWeight="Bold"
+                                                            TextAlignment="Center"
+                                                            Foreground="{Binding LabelForeground}"
+                                                            Stroke="{Binding LabelOutline}" StrokeThickness="3"
+                                                            ShadowBrush="{Binding LabelShadow}"
+                                                            Margin="5"
+                                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Panel>
                         </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
