@@ -18,14 +18,19 @@
             <Setter Property="RenderTransform" Value="scale(1.04)" />
         </Style>
 
-        <!-- Fluent's Button template forces BorderBrush to a theme color on
-             :pointerover and :pressed, which would hide the playing/paused
-             outline. Re-bind to the Button's own BorderBrush (which is bound
-             to OutlineBrush on the VM) so the state colour shows through. -->
+        <!-- Fluent's Button template forces Background + BorderBrush to theme
+             colors on :pointerover and :pressed, which would hide the
+             playing/paused outline AND clobber the per-button background
+             color override. Re-bind both to the Button's own values (bound to
+             ButtonBrush / OutlineBrush on the VM) so the state colours show
+             through. Hover feedback still comes from the scale(1.04) transform
+             above. -->
         <Style Selector="ItemsControl > ContentPresenter > Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
             <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
         </Style>
         <Style Selector="ItemsControl > ContentPresenter > Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
             <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
         </Style>
     </UserControl.Styles>
@@ -45,7 +50,10 @@
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Disabled"
                           PointerWheelChanged="OnPageTabsWheel">
-                <TabStrip x:Name="PageTabs"
+                <!-- Bottom inset keeps the tab labels clear of the overlay
+                     horizontal scrollbar that floats over the viewport's
+                     bottom edge when the tabs overflow. -->
+                <TabStrip x:Name="PageTabs" Margin="0,0,0,10"
                           ItemsSource="{Binding VisiblePages}" SelectedItem="{Binding SelectedPage}">
                     <TabStrip.ItemTemplate>
                         <DataTemplate>
@@ -112,12 +120,12 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Button Command="{Binding ClickCommand}" 
-                                BorderBrush="{Binding OutlineBrush}" 
-                                BorderThickness="3" 
-                                CornerRadius="8" 
-                                Margin="10" 
-                                Background="{DynamicResource PanelBackground3}" 
+                        <Button Command="{Binding ClickCommand}"
+                                BorderBrush="{Binding OutlineBrush}"
+                                BorderThickness="3"
+                                CornerRadius="8"
+                                Margin="10"
+                                Background="{Binding ButtonBrush}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                 DragDrop.AllowDrop="True"
                                 DragDrop.DragOver="OnButtonDragOver"
@@ -127,6 +135,8 @@
                                 <ContextMenu>
                                     <MenuItem Header="✏ Rename..." Click="OnRenameButtonClicked" />
                                     <MenuItem Header="🎨 Set icon..." Click="OnSetButtonIconClicked" />
+                                    <MenuItem Header="🖌 Icon color..." Click="OnSetButtonIconColorClicked" />
+                                    <MenuItem Header="🟦 Button color..." Click="OnSetButtonColorClicked" />
                                     <MenuItem Header="🎛 FX Chain..." Click="OnConfigureShortcutSamplersClicked" />
                                     <MenuItem Header="🎚 Bus override..." Click="OnSetButtonBusOverrideClicked"
                                               IsVisible="{Binding IsTrackTarget}" />
@@ -134,17 +144,28 @@
                                     <MenuItem Header="🗑 Remove" Click="OnRemoveButtonClicked" />
                                 </ContextMenu>
                             </Button.ContextMenu>
-                            <Grid RowDefinitions="*, Auto">
-                                <controls:RpgIcon Grid.Row="0" IconName="{Binding EffectiveIcon}"
-                                                  FontSize="36"
-                                                  Foreground="{DynamicResource PrimaryAccent}"
-                                                  IsVisible="{Binding HasIcon}"
-                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <TextBlock Grid.Row="1" Text="{Binding Label}"
-                                           TextWrapping="Wrap" TextAlignment="Center"
-                                           FontWeight="Bold" Foreground="{DynamicResource OnPrimaryAccent}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5" />
-                            </Grid>
+                            <!-- Icon is a full-size, always-centered background layer;
+                                 the label renders in front of it. Over an icon (or a
+                                 custom button color) the label uses white text with a
+                                 dark outline + drop shadow so it stays legible without
+                                 covering the icon; plain text-only buttons render the
+                                 theme text color with no outline/shadow. -->
+                            <Panel>
+                                <Viewbox IsVisible="{Binding HasIcon}" Stretch="Uniform" Margin="14"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <controls:RpgIcon IconName="{Binding EffectiveIcon}"
+                                                      FontSize="48"
+                                                      Foreground="{Binding IconBrush}" />
+                                </Viewbox>
+                                <controls:OutlinedTextBlock Text="{Binding Label}"
+                                                            FontSize="13" FontWeight="Bold"
+                                                            TextAlignment="Center"
+                                                            Foreground="{Binding LabelForeground}"
+                                                            Stroke="{Binding LabelOutline}" StrokeThickness="3"
+                                                            ShadowBrush="{Binding LabelShadow}"
+                                                            Margin="5"
+                                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Panel>
                         </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

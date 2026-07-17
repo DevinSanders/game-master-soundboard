@@ -430,6 +430,22 @@ public partial class ShortcutsViewModel : ViewModelBase, IRecipient<ShortcutAdde
         ReloadCurrentPage();
     }
 
+    /// <summary>Set the per-button icon color (hex string); pass null to
+    /// revert to the theme default.</summary>
+    public void SetButtonIconColorDirect(int buttonId, string? color)
+    {
+        _dbFactory.EditorSave<Core.Models.ShortcutButton>(buttonId, b => b.IconColor = color);
+        ReloadCurrentPage();
+    }
+
+    /// <summary>Set the per-button background color (hex string); pass null to
+    /// revert to the theme default surface.</summary>
+    public void SetButtonColorDirect(int buttonId, string? color)
+    {
+        _dbFactory.EditorSave<Core.Models.ShortcutButton>(buttonId, b => b.ButtonColor = color);
+        ReloadCurrentPage();
+    }
+
     /// <summary>Set or clear the shortcut's bus override. Only meaningful
     /// for Track-targeting shortcuts — for Preset / Playlist shortcuts the
     /// override is ignored at play time (Presets carry their own override
