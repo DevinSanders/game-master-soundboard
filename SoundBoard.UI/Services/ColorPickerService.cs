@@ -27,10 +27,6 @@ public static class ColorPickerService
         public string? Color { get; init; }
     }
 
-    // The client area is extended under the OS chrome for a frameless look,
-    // so content reserves this top gutter to clear the caption region.
-    private const double CaptionGutter = 30;
-
     private static readonly string[] Presets =
     {
         "#E23636", "#E8833A", "#F2C14E", "#55B85A", "#3AA6A6", "#2563EB",
@@ -48,7 +44,7 @@ public static class ColorPickerService
             CornerRadius = new Avalonia.CornerRadius(6),
             BorderBrush = Brushes.Gray,
             BorderThickness = new Avalonia.Thickness(1),
-            Margin = new Avalonia.Thickness(20, CaptionGutter, 20, 6),
+            Margin = new Avalonia.Thickness(20, 20, 20, 6),
         };
 
         var hexBox = new TextBox
@@ -93,9 +89,9 @@ public static class ColorPickerService
             Width = 380,
             Height = 300,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize = false,
             Background = ThemeBrushes.Resolve("ContentBackground")
                          ?? new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B)),
-            ExtendClientAreaToDecorationsHint = true,
         };
 
         void Commit(string? value)

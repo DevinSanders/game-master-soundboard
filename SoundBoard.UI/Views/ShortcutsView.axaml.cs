@@ -40,13 +40,6 @@ public partial class ShortcutsView : UserControl
     private TabStrip? _pageTabs;
     private GhostCardReorderController<ShortcutPage>? _tabReorder;
 
-    /// <summary>Top inset applied to the content of the hand-built rename /
-    /// bus-override dialogs. Those windows extend the client area under the
-    /// OS chrome (<see cref="Window.ExtendClientAreaToDecorationsHint"/>) for
-    /// a frameless look, so their content must reserve this much space to sit
-    /// below the caption / window-control region instead of under it.</summary>
-    private const double CaptionGutter = 30;
-
     public ShortcutsView()
     {
         InitializeComponent();
@@ -216,73 +209,12 @@ public partial class ShortcutsView : UserControl
     private async Task PromptRenamePageAsync(ShortcutPage page)
     {
         if (Vm == null) return;
-
-        // Create a simple inline rename dialog. The client area is extended
-        // under the window chrome for a frameless look, so the content panel
-        // reserves a top gutter (CaptionGutter) to clear the drag/caption
-        // region — otherwise the textbox rides up under the title bar.
-        var dialog = new Window
-        {
-            Title = "Rename Page",
-            Width = 350,
-            Height = 170,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = SoundBoard.UI.Services.ThemeBrushes.Resolve("ContentBackground")
-                         ?? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(0x1E, 0x29, 0x3B)),
-            ExtendClientAreaToDecorationsHint = true,
-        };
-
-        var textBox = new TextBox
-        {
-            Text = page.Name,
-            Margin = new Thickness(20, 12, 20, 10),
-            FontSize = 16,
-        };
-
-        var saveButton = new Button
-        {
-            Content = "Save",
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-            Margin = new Thickness(0, 0, 20, 20),
-            Padding = new Thickness(20, 8),
-        };
-
-        saveButton.Click += (s, args) =>
-        {
-            if (!string.IsNullOrWhiteSpace(textBox.Text))
-            {
-                Vm.RenamePageDirect(page.Id, textBox.Text.Trim());
-            }
-            dialog.Close();
-        };
-
-        textBox.KeyDown += (s, args) =>
-        {
-            if (args.Key == Key.Enter && !string.IsNullOrWhiteSpace(textBox.Text))
-            {
-                Vm.RenamePageDirect(page.Id, textBox.Text.Trim());
-                dialog.Close();
-            }
-            else if (args.Key == Key.Escape)
-            {
-                dialog.Close();
-            }
-        };
-
-        var panel = new StackPanel { Margin = new Thickness(0, CaptionGutter, 0, 0) };
-        panel.Children.Add(textBox);
-        panel.Children.Add(saveButton);
-        dialog.Content = panel;
-
         var owner = TopLevel.GetTopLevel(this) as Window;
-        if (owner != null)
-        {
-            await dialog.ShowDialog(owner);
-        }
-        else
-        {
-            dialog.Show();
-        }
+        if (owner == null) return;
+
+        var newName = await Services.RenameDialogService.PromptAsync(owner, "Rename Page", page.Name);
+        if (newName != null)
+            Vm.RenamePageDirect(page.Id, newName);
     }
 
     private void OnDeletePageClicked(object? sender, RoutedEventArgs e)
@@ -316,60 +248,12 @@ public partial class ShortcutsView : UserControl
         {
             if (sender is not MenuItem mi || mi.DataContext is not ViewModels.ShortcutButtonViewModel btnVm) return;
             if (Vm == null) return;
-
-            var dialog = new Window
-            {
-                Title = "Rename Button",
-                Width = 350,
-                Height = 170,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Background = Avalonia.Media.Brushes.Transparent,
-                ExtendClientAreaToDecorationsHint = true,
-            };
-
-            var textBox = new TextBox
-            {
-                Text = btnVm.Label ?? "",
-                Margin = new Thickness(20, 12, 20, 10),
-                FontSize = 16,
-            };
-
-            var saveButton = new Button
-            {
-                Content = "Save",
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-                Margin = new Thickness(0, 0, 20, 20),
-                Padding = new Thickness(20, 8),
-            };
-
-            saveButton.Click += (s, args) =>
-            {
-                if (!string.IsNullOrWhiteSpace(textBox.Text))
-                    Vm.RenameButtonDirect(btnVm.ModelId, textBox.Text.Trim());
-                dialog.Close();
-            };
-
-            textBox.KeyDown += (s, args) =>
-            {
-                if (args.Key == Key.Enter && !string.IsNullOrWhiteSpace(textBox.Text))
-                {
-                    Vm.RenameButtonDirect(btnVm.ModelId, textBox.Text.Trim());
-                    dialog.Close();
-                }
-                else if (args.Key == Key.Escape)
-                {
-                    dialog.Close();
-                }
-            };
-
-            var panel = new StackPanel { Margin = new Thickness(0, CaptionGutter, 0, 0) };
-            panel.Children.Add(textBox);
-            panel.Children.Add(saveButton);
-            dialog.Content = panel;
-
             var owner = TopLevel.GetTopLevel(this) as Window;
-            if (owner != null) await dialog.ShowDialog(owner);
-            else                dialog.Show();
+            if (owner == null) return;
+
+            var newName = await Services.RenameDialogService.PromptAsync(owner, "Rename Button", btnVm.Label);
+            if (newName != null)
+                Vm.RenameButtonDirect(btnVm.ModelId, newName);
         }, "Rename button");
 
     private void OnRemoveButtonClicked(object? sender, RoutedEventArgs e)
@@ -468,10 +352,11 @@ public partial class ShortcutsView : UserControl
             {
                 Title = "Bus Override",
                 Width = 380,
-                Height = 200,
+                Height = 190,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Background = Avalonia.Media.Brushes.Transparent,
-                ExtendClientAreaToDecorationsHint = true,
+                CanResize = false,
+                Background = SoundBoard.UI.Services.ThemeBrushes.Resolve("ContentBackground")
+                             ?? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(0x1E, 0x29, 0x3B)),
             };
 
             saveButton.Click += (s, args) =>
@@ -481,7 +366,7 @@ public partial class ShortcutsView : UserControl
                 dialog.Close();
             };
 
-            var panel = new StackPanel { Margin = new Thickness(0, CaptionGutter, 0, 0) };
+            var panel = new StackPanel();
             panel.Children.Add(new TextBlock
             {
                 Text = "Force this shortcut's track through a specific bus, or leave as 'Inherit'.",
