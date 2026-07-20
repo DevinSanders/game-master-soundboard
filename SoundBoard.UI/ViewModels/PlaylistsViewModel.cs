@@ -161,6 +161,15 @@ public partial class PlaylistsViewModel : ViewModelBase, IRecipient<LibraryRefre
         _samplerLauncher.Open(SoundBoard.Core.Models.SamplerOwnerType.Playlist, SelectedPlaylist.Id, SelectedPlaylist.Name ?? "");
     }
 
+    /// <summary>Rename a playlist and refresh the list so both the sidebar
+    /// entry and the header re-read the new name (the model is a POCO, so a
+    /// reload is how the bound name updates). Selection is preserved by id.</summary>
+    public void RenamePlaylistDirect(int id, string newName)
+    {
+        _dbFactory.EditorSave<Core.Models.Playlist>(id, p => p.Name = newName);
+        Reload();
+    }
+
     public void Reload()
     {
         var prevSelectedId = SelectedPlaylist?.Id;

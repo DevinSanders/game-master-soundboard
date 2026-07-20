@@ -154,4 +154,15 @@ public partial class PlaylistsView : UserControl
             var result = await IconPickerService.PickAsync(owner, Vm.SelectedPlaylist.Icon);
             Vm.SetIconForSelected(result.Icon);
         }, "Pick playlist icon");
+
+    private async void OnRenamePlaylistClicked(object? sender, RoutedEventArgs e)
+        => await UiOps.RunGuarded(async () =>
+        {
+            if (Vm?.SelectedPlaylist is not { } playlist) return;
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            if (owner == null) return;
+            var newName = await RenameDialogService.PromptAsync(owner, "Rename Playlist", playlist.Name);
+            if (newName != null)
+                Vm.RenamePlaylistDirect(playlist.Id, newName);
+        }, "Rename playlist");
 }
