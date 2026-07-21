@@ -33,7 +33,7 @@
          SoundBoard.Core.csproj for the same pin + rationale. -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.4" />
 
     <!-- Audio fakes need ISampleProvider. -->
     <PackageReference Include="NAudio.Core" Version="2.3.0" />
