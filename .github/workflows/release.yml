@@ -269,6 +269,14 @@ jobs:
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # A SemVer prerelease suffix (the "-beta.2" in "1.0.0-beta.2") means
+          # this is NOT a stable release. Only stable versions get pushed to
+          # the Chocolatey community feed.
+          if [[ "$VERSION" == *-* ]]; then
+            echo "is_stable=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_stable=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Patch chocolatey templates
         shell: pwsh
@@ -312,6 +320,26 @@ jobs:
           name: chocolatey
           path: chocolatey-out/*.nupkg
           if-no-files-found: error
+
+      # Publish to the Chocolatey community feed — STABLE releases only.
+      # Prerelease tags (v1.0.0-beta.2) still build + attach the .nupkg to the
+      # GitHub Release above, but are not auto-submitted. Every push still goes
+      # through community.chocolatey.org human moderation before going live.
+      # Skips cleanly (no failure) when CHOCO_API_KEY is absent — e.g. on forks.
+      - name: Push to Chocolatey (stable only)
+        if: steps.version.outputs.is_stable == 'true'
+        shell: pwsh
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CHOCO_API_KEY)) {
+            Write-Host "CHOCO_API_KEY not set — skipping community-feed push."
+            exit 0
+          }
+          $pkg = Get-ChildItem chocolatey-out -Filter *.nupkg | Select-Object -First 1
+          if (-not $pkg) { throw "No .nupkg found in chocolatey-out/ to push." }
+          Write-Host "Pushing $($pkg.Name) to the Chocolatey community feed..."
+          choco push $pkg.FullName --source https://push.chocolatey.org/ --api-key $env:CHOCO_API_KEY
 
   # ──────────────────────────────────────────────────────────────────────────
   # Step 2b: Stamp the Homebrew Cask formula with the release version + DMG
