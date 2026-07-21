@@ -30,6 +30,9 @@
                 <StackPanel Grid.Row="2" Spacing="6" Margin="0,10,0,0">
                     <Button Content="+ New Playlist" Classes="primary" Command="{Binding CreatePlaylistCommand}"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                    <Button Content="✏ Rename..." Click="OnRenamePlaylistClicked"
+                            IsEnabled="{Binding SelectedPlaylist, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
                     <Button Content="🎛 FX Chain..." Command="{Binding OpenFxChainCommand}"
                             IsEnabled="{Binding SelectedPlaylist, Converter={x:Static ObjectConverters.IsNotNull}}"
                             ToolTip.Tip="Configure the FX chain applied when this playlist plays"
