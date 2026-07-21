@@ -17,11 +17,11 @@
          gmsb-bridge-discord plugin. Users who don't run a voice bridge
          no longer pay ~25 MB of native libdave binaries (5 RIDs)
          they'd never load. -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
     <!-- Pinned to override the transitive 2.1.11 that EF Core 10.0.9
          drags in, which the NU1903 advisory (GHSA-2m69-gcr7-jv3q)
          flags as high severity. 3.0.x ships the patched native
