@@ -30,7 +30,7 @@
          SQLitePCLRaw API surface didn't change across the major
          bump. Re-evaluate when EF Core itself ships against a
          clean SQLitePCLRaw. -->
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.4" />
     <!-- OpenAL Soft is the audio output backend on both macOS and Linux
          — one library across the Unix-family platforms, one mental model,
          one set of tests. Replaces miniaudio (Miniaudio-CS), which:
