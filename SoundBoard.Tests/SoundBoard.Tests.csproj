@@ -31,7 +31,7 @@
          overrides the transitive 2.1.11 that EF 10.0.9 drags in,
          which the NU1903 advisory (GHSA-2m69-gcr7-jv3q) flags. See
          SoundBoard.Core.csproj for the same pin + rationale. -->
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
 
