@@ -1,8 +1,21 @@
 version: 2
 updates:
-  # NuGet packages across all projects in the solution.
+  # NuGet packages. Every project's manifest is tracked explicitly (rather
+  # than relying on solution discovery through the .slnx), and updates are
+  # batched into grouped PRs. Grouping matters here because a few packages
+  # are pinned directly in more than one project — e.g.
+  # SQLitePCLRaw.bundle_e_sqlite3 lives in both SoundBoard.Core and
+  # SoundBoard.Tests. An ungrouped single-package update can land in one
+  # project only, leaving the others on the old version and tripping
+  # NU1605 (package downgrade) under warnings-as-errors. A group spanning
+  # every directory bumps the package in all of its manifests at once.
   - package-ecosystem: "nuget"
-    directory: "/"
+    directories:
+      - "/SoundBoard.Core"
+      - "/SoundBoard.UI"
+      - "/SoundBoard.Desktop"
+      - "/SoundBoard.PluginApi"
+      - "/SoundBoard.Tests"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -14,24 +27,22 @@ updates:
       - dependency-name: "FluentAssertions"
         versions: [">=8.0.0"]
     groups:
-      avalonia:
+      # All non-major bumps across every project in a single PR, so shared
+      # packages move in lockstep.
+      nuget-minor-patch:
         patterns:
-          - "Avalonia*"
-      naudio:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Majors get their own PR (breaking changes deserve isolated review)
+      # but are still grouped across projects, so a shared-package major
+      # updates all of its manifests together instead of splitting.
+      nuget-major:
         patterns:
-          - "NAudio*"
-      silk-openal:
-        patterns:
-          - "Silk.NET.OpenAL*"
-      efcore:
-        patterns:
-          - "Microsoft.EntityFrameworkCore*"
-      mvvm-toolkit:
-        patterns:
-          - "CommunityToolkit.Mvvm"
-      ms-extensions:
-        patterns:
-          - "Microsoft.Extensions.*"
+          - "*"
+        update-types:
+          - "major"
 
   # Pinned versions of GitHub Actions in the workflows.
   - package-ecosystem: "github-actions"
@@ -39,3 +50,7 @@ updates:
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        patterns:
+          - "*"
