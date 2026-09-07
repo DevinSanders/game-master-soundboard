@@ -36,7 +36,7 @@
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
 
     <!-- Audio fakes need ISampleProvider. -->
-    <PackageReference Include="NAudio.Core" Version="2.3.0" />
+    <PackageReference Include="NAudio.Core" Version="2.4.0" />
 
     <!-- Avalonia headless: [AvaloniaFact] / [AvaloniaTheory] from the
          XUnit integration package handle dispatcher bootstrap per-test,

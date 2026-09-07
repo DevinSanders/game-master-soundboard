@@ -41,7 +41,7 @@
          Windows-only concerns. A theme-only plugin still gets NAudio.Core
          transitively (~200 KB); that's the cost of giving codec/sampler
          authors a stable type for the contract. -->
-    <PackageReference Include="NAudio.Core" Version="2.3.0" />
+    <PackageReference Include="NAudio.Core" Version="2.4.0" />
   </ItemGroup>
 
 </Project>
