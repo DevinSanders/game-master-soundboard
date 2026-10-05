@@ -36,6 +36,7 @@ public partial class ShortcutsView : UserControl
 
     private ItemsControl? _items;
     private GhostCardReorderController<ViewModels.ShortcutButtonViewModel>? _reorder;
+    private LongPressStopController<ViewModels.ShortcutButtonViewModel>? _longPressStop;
 
     private TabStrip? _pageTabs;
     private GhostCardReorderController<ShortcutPage>? _tabReorder;
@@ -64,8 +65,18 @@ public partial class ShortcutsView : UserControl
                 getItems: () => _items,
                 getTemplate: () => _items?.ItemTemplate,
                 moveVisually: (s, t) => Vm?.SwapButtons(s, t),
-                persistOrder: () => Vm?.PersistButtonOrder());
+                persistOrder: () => Vm?.PersistButtonOrder(),
+                isEnabled: () => Vm?.IsLocked == false);
             _reorder.Attach(_items);
+
+            // Locked-board gesture: long-press a button to STOP its target
+            // (vs the tap's play/pause). Inert while unlocked — the reorder
+            // controller owns long-press then.
+            _longPressStop = new LongPressStopController<ViewModels.ShortcutButtonViewModel>(
+                getItems: () => _items,
+                isEnabled: () => Vm?.IsLocked == true,
+                onLongPress: vm => vm.Stop());
+            _longPressStop.Attach(_items);
         }
 
         // Same ghost-mode pattern for the TabStrip — drag a tab horizontally
@@ -87,12 +98,29 @@ public partial class ShortcutsView : UserControl
                     if (Vm == null) return;
                     var ids = Vm.VisiblePages.Select(p => p.Id).ToList();
                     Vm.ReorderPages(ids);
-                });
+                },
+                isEnabled: () => Vm?.IsLocked == false);
             _tabReorder.Attach(_pageTabs);
         }
     }
 
     private ViewModels.ShortcutsViewModel? Vm => DataContext as ViewModels.ShortcutsViewModel;
+
+    /// <summary>Corner "⋮" affordance: open the owning shortcut button's
+    /// context menu. Walks up to the nearest ancestor Button that actually
+    /// has a ContextMenu (the card itself) and opens it there.</summary>
+    private void OnShortcutMenuButtonClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Control c) return;
+        foreach (var a in c.GetVisualAncestors())
+        {
+            if (a is Button owner && owner.ContextMenu is { } menu)
+            {
+                menu.Open(owner);
+                break;
+            }
+        }
+    }
 
     // ── Drag & Drop ──────────────────────────────────────────
 

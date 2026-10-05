@@ -18,6 +18,7 @@ public partial class PoppedShortcutPageView : UserControl
 {
     private ItemsControl? _items;
     private GhostCardReorderController<ShortcutButtonViewModel>? _reorder;
+    private LongPressStopController<ShortcutButtonViewModel>? _longPressStop;
 
     public PoppedShortcutPageView()
     {
@@ -31,8 +32,16 @@ public partial class PoppedShortcutPageView : UserControl
                 getItems: () => _items,
                 getTemplate: () => _items?.ItemTemplate,
                 moveVisually: (s, t) => Vm?.SwapButtons(s, t),
-                persistOrder: () => Vm?.PersistButtonOrder());
+                persistOrder: () => Vm?.PersistButtonOrder(),
+                isEnabled: () => Vm?.IsLocked == false);
             _reorder.Attach(_items);
+
+            // Locked-board long-press → Stop (same as the main view).
+            _longPressStop = new LongPressStopController<ShortcutButtonViewModel>(
+                getItems: () => _items,
+                isEnabled: () => Vm?.IsLocked == true,
+                onLongPress: vm => vm.Stop());
+            _longPressStop.Attach(_items);
         }
     }
 

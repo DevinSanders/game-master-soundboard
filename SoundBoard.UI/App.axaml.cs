@@ -110,6 +110,9 @@ public partial class App : Application
         services.AddTransient<PlaylistsViewModel>();
         services.AddTransient<PresetsViewModel>();
         services.AddTransient<PresetEditorViewModel>();
+        // Session-only soundboard lock (defaults to locked each launch), shared
+        // by the main view and every popped-out page so one toggle governs all.
+        services.AddSingleton<ISoundboardLockService, SoundboardLockService>();
         // Singleton so other windows (Presets) can reach the live ShortcutsViewModel
         // and target the currently-selected page when adding shortcut buttons.
         services.AddSingleton<ShortcutsViewModel>();

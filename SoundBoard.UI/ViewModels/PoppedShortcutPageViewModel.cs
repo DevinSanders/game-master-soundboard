@@ -28,6 +28,7 @@ public partial class PoppedShortcutPageViewModel : ViewModelBase,
 {
     private readonly ISoundBoardDbContextFactory _dbFactory;
     private readonly IAudioPlaybackEngine _playbackEngine;
+    private readonly ISoundboardLockService _lock;
     private bool _disposed;
 
     public int PageId { get; }
@@ -36,12 +37,24 @@ public partial class PoppedShortcutPageViewModel : ViewModelBase,
     [ObservableProperty]
     private ObservableCollection<ShortcutButtonViewModel> _currentButtons = new();
 
+    /// <summary>Shared soundboard lock — mirrors the main view so a popped
+    /// window gates its own reorder / long-press on the same state and can
+    /// flip the lock too.</summary>
+    public bool IsLocked
+    {
+        get => _lock.IsLocked;
+        set => _lock.IsLocked = value;
+    }
+
     public PoppedShortcutPageViewModel(ISoundBoardDbContextFactory dbFactory,
                                        IAudioPlaybackEngine playbackEngine,
+                                       ISoundboardLockService lockService,
                                        ShortcutPage page)
     {
         _dbFactory = dbFactory;
         _playbackEngine = playbackEngine;
+        _lock = lockService;
+        _lock.Changed += OnLockChanged;
         PageId = page.Id;
         PageName = page.Name;
 
@@ -51,6 +64,11 @@ public partial class PoppedShortcutPageViewModel : ViewModelBase,
 
         ReloadButtons();
     }
+
+    private void OnLockChanged() => OnPropertyChanged(nameof(IsLocked));
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void ToggleLock() => _lock.IsLocked = !_lock.IsLocked;
 
     public void Receive(ShortcutAddedMessage message)
     {
@@ -132,6 +150,7 @@ public partial class PoppedShortcutPageViewModel : ViewModelBase,
     {
         if (_disposed) return;
         _disposed = true;
+        _lock.Changed -= OnLockChanged;
         WeakReferenceMessenger.Default.UnregisterAll(this);
         foreach (var vm in CurrentButtons) vm.Dispose();
     }

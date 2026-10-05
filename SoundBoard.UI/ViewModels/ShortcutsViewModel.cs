@@ -28,6 +28,7 @@ public partial class ShortcutsViewModel : ViewModelBase, IRecipient<ShortcutAdde
     private readonly ISamplerChainService _samplerChain;
     private readonly ISamplerLauncherService _samplerLauncher;
     private readonly IPluginService _pluginService;
+    private readonly ISoundboardLockService _lock;
 
     /// <summary>Full set of pages in the library, ordered by OrderIndex.
     /// Used internally for lookups and as the source for
@@ -58,7 +59,8 @@ public partial class ShortcutsViewModel : ViewModelBase, IRecipient<ShortcutAdde
     private ObservableCollection<ShortcutButtonViewModel> _currentButtons = new();
 
     public ShortcutsViewModel(ISoundBoardDbContextFactory dbFactory, IAudioPlaybackEngine playbackEngine, IWindowManagerService windowManager,
-        ISamplerChainService samplerChain, ISamplerLauncherService samplerLauncher, IPluginService pluginService)
+        ISamplerChainService samplerChain, ISamplerLauncherService samplerLauncher, IPluginService pluginService,
+        ISoundboardLockService lockService)
     {
         _dbFactory = dbFactory;
         _playbackEngine = playbackEngine;
@@ -66,12 +68,30 @@ public partial class ShortcutsViewModel : ViewModelBase, IRecipient<ShortcutAdde
         _samplerChain = samplerChain;
         _samplerLauncher = samplerLauncher;
         _pluginService = pluginService;
+        _lock = lockService;
+        _lock.Changed += () => OnPropertyChanged(nameof(IsLocked));
 
         WeakReferenceMessenger.Default.Register<ShortcutAddedMessage>(this);
         WeakReferenceMessenger.Default.Register<LibraryRefreshedMessage>(this);
         WeakReferenceMessenger.Default.Register<ShortcutsReorderedMessage>(this);
         LoadPages();
     }
+
+    /// <summary>Whether the soundboard is locked: reorder (buttons + tabs) is
+    /// disabled and long-press stops a track instead of starting a drag.
+    /// Session-only and shared across every page via the lock service.</summary>
+    public bool IsLocked
+    {
+        get => _lock.IsLocked;
+        set => _lock.IsLocked = value;
+    }
+
+    [RelayCommand]
+    private void ToggleLock() => _lock.IsLocked = !_lock.IsLocked;
+
+    /// <summary>The shared lock service, handed to popped-out pages so they
+    /// observe the same lock state and gate their own reorder on it.</summary>
+    public ISoundboardLockService LockService => _lock;
 
     public void Receive(ShortcutAddedMessage message)
     {
@@ -547,7 +567,7 @@ public partial class ShortcutsViewModel : ViewModelBase, IRecipient<ShortcutAdde
     private void PopOut()
     {
         if (SelectedPage == null) return;
-        var popped = new PoppedShortcutPageViewModel(_dbFactory, _playbackEngine, SelectedPage);
+        var popped = new PoppedShortcutPageViewModel(_dbFactory, _playbackEngine, _lock, SelectedPage);
         _windowManager.ShowWindow(popped, $"shortcut-page-{SelectedPage.Id}",
                                   $"SoundBoard - {SelectedPage.Name}", 1000, 800);
     }

@@ -180,6 +180,21 @@ public partial class ShortcutButtonViewModel : ViewModelBase, IDisposable
         UpdateOutline();
     }
 
+    /// <summary>Fully stop this button's target (not pause). Mirrors
+    /// <see cref="Click"/>'s target dispatch but calls the engine's Stop*
+    /// methods — used by the locked-board long-press gesture so touch users
+    /// can halt a track without opening the Mixer.</summary>
+    public void Stop()
+    {
+        if (_model.TrackId.HasValue && _model.Track != null)
+            _playbackEngine.StopTrack(_model.Track);
+        else if (_model.PresetId.HasValue && _model.Preset != null)
+            _playbackEngine.StopPreset(_model.Preset);
+        else if (_model.PlaylistId.HasValue && _model.Playlist != null)
+            _playbackEngine.StopPlaylist(_model.Playlist);
+        UpdateOutline();
+    }
+
     private bool _disposed;
 
     /// <summary>Unsubscribe from the singleton playback engine's events. Must

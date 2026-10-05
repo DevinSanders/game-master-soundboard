@@ -49,6 +49,7 @@ public sealed class GhostCardReorderController<TCardVm> where TCardVm : class
     private readonly Action<TCardVm, TCardVm> _moveVisually;
     private readonly Action _persistOrder;
     private readonly Func<TCardVm, Control>? _buildGhostContent;
+    private readonly Func<bool>? _isEnabled;
 
     private GhostDragOverlay? _ghostOverlay;
     private TCardVm? _draggingVm;
@@ -91,7 +92,8 @@ public sealed class GhostCardReorderController<TCardVm> where TCardVm : class
         Action<TCardVm, TCardVm> moveVisually,
         Action persistOrder,
         DragInitiator? drag = null,
-        Func<TCardVm, Control>? buildGhostContent = null)
+        Func<TCardVm, Control>? buildGhostContent = null,
+        Func<bool>? isEnabled = null)
     {
         _root = root ?? throw new ArgumentNullException(nameof(root));
         _getItems = getItems ?? throw new ArgumentNullException(nameof(getItems));
@@ -100,6 +102,7 @@ public sealed class GhostCardReorderController<TCardVm> where TCardVm : class
         _persistOrder = persistOrder ?? throw new ArgumentNullException(nameof(persistOrder));
         _drag = drag ?? new DragInitiator { MinDistance = UiConstants.CardDragMinDistance };
         _buildGhostContent = buildGhostContent;
+        _isEnabled = isEnabled;
     }
 
     /// <summary>Convenience: AddHandler all four pointer events with
@@ -127,8 +130,15 @@ public sealed class GhostCardReorderController<TCardVm> where TCardVm : class
         return null;
     }
 
+    /// <summary>When an <c>isEnabled</c> predicate was supplied and returns
+    /// false (e.g. the soundboard is locked), the controller is inert — it
+    /// never arms a drag and never captures the pointer, so taps / long-press
+    /// gestures reach the card unimpeded.</summary>
+    private bool Enabled => _isEnabled?.Invoke() ?? true;
+
     public void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (!Enabled) return;
         if (e.Source is not Visual v) return;
         var card = FindCard(v);
         if (card == null) return;
@@ -172,6 +182,9 @@ public sealed class GhostCardReorderController<TCardVm> where TCardVm : class
 
     public void OnPointerMoved(object? sender, PointerEventArgs e)
     {
+        // Still finish an in-flight ghost drag even if we just became disabled,
+        // but never start a new one while disabled.
+        if (!Enabled && !_ghostDrag) return;
         var items = _getItems();
         if (items == null) return;
 
