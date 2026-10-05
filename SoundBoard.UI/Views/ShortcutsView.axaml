@@ -72,67 +72,55 @@
                 </TabStrip>
             </ScrollViewer>
 
-            <!-- Compact, icon-only action strip so the tab row keeps nearly the
-                 full width. Tooltips carry the meaning that the text labels used
-                 to. Uniform 36x34 square touch targets. -->
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="8,0,0,0"
-                        VerticalAlignment="Center">
-                <!-- Board lock. Locked (default) disables reordering buttons and
-                     tabs so the board is safe to tap during a session; long-press
-                     then stops a track instead of starting a drag. Unlock to
-                     rearrange. One lock governs all pages + popped windows. -->
-                <ToggleButton IsChecked="{Binding IsLocked, Mode=TwoWay}"
-                              Width="36" Height="34" Padding="0" FontSize="16" CornerRadius="6"
-                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                              ToolTip.Tip="Locked: tap to play/pause, long-press to stop. Unlock to drag-reorder buttons and tabs.">
-                    <Panel>
-                        <TextBlock Text="🔒" IsVisible="{Binding IsLocked}" />
-                        <TextBlock Text="🔓" IsVisible="{Binding !IsLocked}" />
-                    </Panel>
-                </ToggleButton>
+            <!-- All page/board actions collapse into one overflow button so the
+                 tab row keeps essentially the full width. The flyout holds the
+                 board lock, Add page, Pop out, and (when any exist) the hidden
+                 pages. -->
+            <Button Grid.Column="1" x:Name="BoardMenuButton" Content="☰" FontSize="18"
+                    Width="36" Height="34" Padding="0" Margin="8,0,0,0" CornerRadius="6"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                    VerticalAlignment="Center" ToolTip.Tip="Board menu">
+                <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedRight">
+                        <StackPanel MinWidth="230" Spacing="2">
+                            <!-- Board lock. Locked (default) disables reordering
+                                 buttons and tabs so the board is safe to tap; while
+                                 locked, long-press stops a track instead of dragging.
+                                 One lock governs all pages + popped windows. The
+                                 toggle stays open so the state change is visible. -->
+                            <ToggleButton IsChecked="{Binding IsLocked, Mode=TwoWay}"
+                                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                          ToolTip.Tip="Locked: tap to play/pause, long-press to stop. Unlock to drag-reorder buttons and tabs.">
+                                <Panel>
+                                    <TextBlock Text="🔒  Board locked (tap to unlock)" IsVisible="{Binding IsLocked}" />
+                                    <TextBlock Text="🔓  Board unlocked (tap to lock)" IsVisible="{Binding !IsLocked}" />
+                                </Panel>
+                            </ToggleButton>
 
-                <!-- Add Page -->
-                <Button Content="+" FontSize="18" FontWeight="Bold"
-                        Width="36" Height="34" Padding="0" CornerRadius="6"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Background="{DynamicResource SuccessBackground}" Foreground="{DynamicResource SuccessForeground}"
-                        ToolTip.Tip="Add new page" Command="{Binding AddPageCommand}" />
+                            <Button Content="➕  Add page" Click="OnBoardMenuAddPage"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    Background="Transparent" BorderThickness="0" />
+                            <Button Content="🗗  Pop out this page" Click="OnBoardMenuPopOut"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    Background="Transparent" BorderThickness="0" />
 
-                <!-- Hidden tabs overflow. Only shows when at least one page
-                     is hidden — keeps the toolbar clean otherwise. Each row
-                     in the flyout lists a hidden page's name with a
-                     one-click "Show" button that flips IsHidden=false. -->
-                <Button Content="⋯" FontSize="18" FontWeight="Bold"
-                        Width="36" Height="34" Padding="0" CornerRadius="6"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        ToolTip.Tip="Show hidden pages" IsVisible="{Binding HasHiddenPages}">
-                    <Button.Flyout>
-                        <Flyout Placement="Bottom">
-                            <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding HiddenPages}" MinWidth="240">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid ColumnDefinitions="*, Auto" Margin="4">
-                                                <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                                           VerticalAlignment="Center" />
-                                                <Button Grid.Column="1" Content="▸ Show" Padding="8,2"
-                                                        Click="OnShowHiddenPageClicked" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </Flyout>
-                    </Button.Flyout>
-                </Button>
-
-                <!-- Pop this page out into its own window -->
-                <Button Content="🗗" FontSize="16"
-                        Width="36" Height="34" Padding="0" CornerRadius="6"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Classes="primary" ToolTip.Tip="Pop this page out into its own window"
-                        Command="{Binding PopOutCommand}" />
-            </StackPanel>
+                            <Separator IsVisible="{Binding HasHiddenPages}" />
+                            <TextBlock Text="Hidden pages" FontWeight="Bold" FontSize="11" Margin="6,2,0,2"
+                                       Foreground="{DynamicResource TextSecondary}"
+                                       IsVisible="{Binding HasHiddenPages}" />
+                            <ItemsControl ItemsSource="{Binding HiddenPages}" IsVisible="{Binding HasHiddenPages}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding Name}" Click="OnShowHiddenPageClicked"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                Background="Transparent" BorderThickness="0" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
         </Grid>
 
         <!-- Row 1: Dynamic Grid of Shortcut Buttons -->

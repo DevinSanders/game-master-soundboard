@@ -267,7 +267,28 @@ public partial class ShortcutsView : UserControl
         {
             Vm?.ShowPageDirect(page.Id);
         }
+        CloseBoardMenu();
     }
+
+    // ── Board overflow menu (☰) ──────────────────────────────
+
+    private void OnBoardMenuAddPage(object? sender, RoutedEventArgs e)
+    {
+        Vm?.AddPageCommand.Execute(null);
+        CloseBoardMenu();
+    }
+
+    private void OnBoardMenuPopOut(object? sender, RoutedEventArgs e)
+    {
+        Vm?.PopOutCommand.Execute(null);
+        CloseBoardMenu();
+    }
+
+    /// <summary>Dismiss the board overflow flyout after a one-shot action
+    /// (Add / Pop out / Show hidden). The lock toggle deliberately leaves it
+    /// open so the state change is visible.</summary>
+    private void CloseBoardMenu() =>
+        this.FindControl<Button>("BoardMenuButton")?.Flyout?.Hide();
 
     // ── Button Context Menu ──────────────────────────────────
 
