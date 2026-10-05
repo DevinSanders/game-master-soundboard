@@ -63,6 +63,7 @@
                                 BorderThickness="3"
                                 CornerRadius="8"
                                 Margin="10"
+                                Padding="0"
                                 Background="{Binding ButtonBrush}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <!-- Full-size centered icon layer with the label in front.
