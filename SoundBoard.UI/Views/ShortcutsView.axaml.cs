@@ -317,19 +317,22 @@ public partial class ShortcutsView : UserControl
             if (Vm == null) return;
 
             var buses = Vm.ListBuses();
-            // Build the choice list: (null, "(Inherit from track)") + every bus.
-            var choices = new System.Collections.Generic.List<(int? Id, string Label)>
+            // Build the choice list: "(Inherit from track)" (null) + every bus.
+            // Use a real class, not a ValueTuple — DisplayMemberBinding resolves
+            // CLR properties via reflection, and a tuple's named elements
+            // (Id/Label) are compile-time only (fields Item1/Item2 at runtime),
+            // so binding to "Label" silently fails and every row renders blank.
+            var choices = new System.Collections.Generic.List<BusChoice>
             {
-                (null, "(Inherit from track)")
+                new() { Id = null, Label = "(Inherit from track)" }
             };
-            foreach (var b in buses) choices.Add((b.Id, b.Name));
+            foreach (var b in buses) choices.Add(new BusChoice { Id = b.Id, Label = b.Name });
 
             var combo = new ComboBox
             {
                 Margin = new Thickness(20, 20, 20, 10),
                 ItemsSource = choices,
-                DisplayMemberBinding = new Avalonia.Data.Binding("Label"),
-                SelectedValueBinding = new Avalonia.Data.Binding("Id"),
+                DisplayMemberBinding = new Avalonia.Data.Binding(nameof(BusChoice.Label)),
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
             };
             // Pre-select the current value.
@@ -361,8 +364,8 @@ public partial class ShortcutsView : UserControl
 
             saveButton.Click += (s, args) =>
             {
-                if (combo.SelectedItem is System.ValueTuple<int?, string> picked)
-                    Vm.SetButtonBusOverrideDirect(btnVm.ModelId, picked.Item1);
+                if (combo.SelectedItem is BusChoice picked)
+                    Vm.SetButtonBusOverrideDirect(btnVm.ModelId, picked.Id);
                 dialog.Close();
             };
 
@@ -381,4 +384,13 @@ public partial class ShortcutsView : UserControl
             if (owner != null) await dialog.ShowDialog(owner);
             else                dialog.Show();
         }, "Set button bus override");
+
+    /// <summary>Row model for the bus-override combo. A class (not a
+    /// ValueTuple) so <see cref="ComboBox.DisplayMemberBinding"/> can resolve
+    /// <see cref="Label"/> as a real CLR property.</summary>
+    private sealed class BusChoice
+    {
+        public int? Id { get; init; }
+        public string Label { get; init; } = "";
+    }
 }
