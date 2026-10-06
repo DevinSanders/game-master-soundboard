@@ -143,6 +143,7 @@
                                 Padding="0"
                                 Background="{Binding ButtonBrush}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                InputElement.IsHoldingEnabled="True"
                                 DragDrop.AllowDrop="True"
                                 DragDrop.DragOver="OnButtonDragOver"
                                 DragDrop.Drop="OnButtonDrop"

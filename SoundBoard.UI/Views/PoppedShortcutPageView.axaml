@@ -65,6 +65,7 @@
                                 Margin="10"
                                 Padding="0"
                                 Background="{Binding ButtonBrush}"
+                                InputElement.IsHoldingEnabled="True"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <!-- Full-size centered icon layer with the label in front.
                                  Mirrors ShortcutsView; see it for the full rationale. -->
