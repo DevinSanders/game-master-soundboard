@@ -69,11 +69,12 @@ public partial class ShortcutsView : UserControl
                 isEnabled: () => Vm?.IsLocked == false);
             _reorder.Attach(_items);
 
-            // Locked-board gesture: long-press a button to STOP its target
-            // (vs the tap's play/pause). Inert while unlocked — the reorder
-            // controller owns long-press then.
+            // Locked-board gesture: long-press (Holding) a button to STOP its
+            // target (vs the tap's play/pause). Inert while unlocked — the
+            // reorder controller owns the gesture then. Uses the platform
+            // Holding gesture so Windows' touch press-and-hold doesn't get
+            // hijacked into a right-click.
             _longPressStop = new LongPressStopController<ViewModels.ShortcutButtonViewModel>(
-                getItems: () => _items,
                 isEnabled: () => Vm?.IsLocked == true,
                 onLongPress: vm => vm.Stop());
             _longPressStop.Attach(_items);

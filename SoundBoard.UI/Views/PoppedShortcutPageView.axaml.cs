@@ -36,9 +36,8 @@ public partial class PoppedShortcutPageView : UserControl
                 isEnabled: () => Vm?.IsLocked == false);
             _reorder.Attach(_items);
 
-            // Locked-board long-press → Stop (same as the main view).
+            // Locked-board long-press (Holding) → Stop (same as the main view).
             _longPressStop = new LongPressStopController<ShortcutButtonViewModel>(
-                getItems: () => _items,
                 isEnabled: () => Vm?.IsLocked == true,
                 onLongPress: vm => vm.Stop());
             _longPressStop.Attach(_items);
