@@ -163,12 +163,31 @@ public class LibraryTransferService : ILibraryTransferService
                 continue;
             }
 
-            // FilePath collision: always collapse. The existing row's user
-            // fields (icon, fades, etc.) survive a merge — only Skip semantic
-            // is meaningful here.
+            // FilePath collision: always collapse — a single audio file is a
+            // single library entry. The existing row's user fields (Name, Tags,
+            // Icon, volume, fades, start/end points, …) are preserved exactly.
+            //
+            // The one correction we make is the audio bus, and only for tracks
+            // the user hasn't deliberately routed: if the bundle actually
+            // specifies a bus for this file (schema-3 with a resolvable source
+            // id) and the existing track is still on the default bus, adopt the
+            // bundle's bus. This lets a re-import of a now-bus-aware library fix
+            // tracks that defaulted to Music on an earlier schema-2 import,
+            // while never touching a bus the user set by hand. We check busIdMap
+            // directly rather than ResolveBusId() — the latter falls back to the
+            // default bus on a miss, so it can't distinguish "file says Music"
+            // from "file says nothing" (schema-2: empty Buses, BusId 0).
             var byPath = await db.Tracks.FirstOrDefaultAsync(t => t.FilePath == resolved);
             if (byPath != null)
             {
+                if (busIdMap.TryGetValue(et.BusId, out var mappedBus)
+                    && byPath.BusId == BuiltInBusIds.DefaultForNewTracks
+                    && mappedBus != byPath.BusId)
+                {
+                    byPath.BusId = mappedBus;
+                    await db.SaveChangesAsync();
+                    result.TracksBusUpdated++;
+                }
                 trackIdMap[et.Id] = byPath.Id;
                 result.SuccessfullyImported.Add(byPath);
                 trackRegistry.Note(byPath.Name, byPath.Id);
@@ -417,7 +436,7 @@ public class LibraryTransferService : ILibraryTransferService
 
         Log.Info("Transfer",
             $"Merge import done: {result.SuccessfullyImported.Count} tracks " +
-            $"(skipped {result.TracksSkipped}, replaced {result.TracksReplaced}, renamed {result.TracksRenamed}), " +
+            $"(skipped {result.TracksSkipped}, replaced {result.TracksReplaced}, renamed {result.TracksRenamed}, bus-updated {result.TracksBusUpdated}), " +
             $"{result.PresetsImported} presets " +
             $"(skipped {result.PresetsSkipped}, replaced {result.PresetsReplaced}, renamed {result.PresetsRenamed}), " +
             $"{result.PlaylistsImported} playlists " +
