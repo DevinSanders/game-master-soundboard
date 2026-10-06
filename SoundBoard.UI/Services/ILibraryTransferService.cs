@@ -56,6 +56,12 @@ public class ImportResult
     public int TracksReplaced { get; set; }
     public int TracksRenamed { get; set; }
 
+    /// <summary>Existing (FilePath-matched) tracks whose bus was corrected on
+    /// re-import: they were still on the default bus and the bundle specified
+    /// a different one for that file. Only the BusId changes — all other user
+    /// fields are preserved.</summary>
+    public int TracksBusUpdated { get; set; }
+
     public int PresetsSkipped { get; set; }
     public int PresetsReplaced { get; set; }
     public int PresetsRenamed { get; set; }

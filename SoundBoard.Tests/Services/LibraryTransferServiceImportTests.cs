@@ -652,6 +652,172 @@ public sealed class LibraryTransferServiceImportTests : IDisposable
         btn.ButtonColor.Should().Be("#7A1F1F");
     }
 
+    // ── Re-import bus correction (FilePath collision) ───────────────────────
+
+    [Theory]
+    [InlineData(2)] // Ambient
+    [InlineData(3)] // SFX
+    public async Task Reimport_ExistingTrackOnDefaultBus_AdoptsBundleBus(int bundleBusId)
+    {
+        // A track imported earlier from a schema-2 file defaulted to Music.
+        // Re-importing a now-bus-aware bundle for the same FilePath should move
+        // it onto the bundle's bus.
+        var path = MakeAudioFile("rain.wav");
+        using (var seed = _fx.CreateContext())
+        {
+            seed.Tracks.Add(new Track { Name = "Rain", FilePath = path, BusId = BuiltInBusIds.Music });
+            seed.SaveChanges();
+        }
+
+        var jsonPath = WriteExport(BusBundle(path, bundleBusId, name: "Rain"));
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        var result = await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        read.Tracks.Single().BusId.Should().Be(bundleBusId);
+        result.TracksBusUpdated.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Reimport_TrackDeliberatelyMovedOffDefault_IsNotChanged()
+    {
+        // User hand-routed this track to SFX. Even if the bundle says Ambient,
+        // a non-default bus must be left alone.
+        var path = MakeAudioFile("door.wav");
+        using (var seed = _fx.CreateContext())
+        {
+            seed.Tracks.Add(new Track { Name = "Door", FilePath = path, BusId = BuiltInBusIds.Sfx });
+            seed.SaveChanges();
+        }
+
+        var jsonPath = WriteExport(BusBundle(path, BuiltInBusIds.Ambient, name: "Door"));
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        var result = await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        read.Tracks.Single().BusId.Should().Be(BuiltInBusIds.Sfx);
+        result.TracksBusUpdated.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Reimport_Schema2Bundle_LeavesBusUnchanged()
+    {
+        // No Buses table + no BusId (schema-2). Even a default-bus track must
+        // not be touched — the bundle specifies nothing.
+        var path = MakeAudioFile("legacy2.wav");
+        using (var seed = _fx.CreateContext())
+        {
+            seed.Tracks.Add(new Track { Name = "Legacy", FilePath = path, BusId = BuiltInBusIds.Music });
+            seed.SaveChanges();
+        }
+
+        var jsonPath = WriteExport(new
+        {
+            Schema = 2,
+            ExportedAt = DateTime.UtcNow,
+            Tracks = new[] { new { Id = 1, Name = "Legacy", FilePath = path } },
+            Presets = Array.Empty<object>(),
+            Playlists = Array.Empty<object>(),
+            ShortcutPages = Array.Empty<object>(),
+        });
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        var result = await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        read.Tracks.Single().BusId.Should().Be(BuiltInBusIds.Music);
+        result.TracksBusUpdated.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Reimport_BusUpdate_PreservesAllOtherFields()
+    {
+        // Only BusId changes on a re-import; every user field on the existing
+        // row survives, even when the bundle carries different values.
+        var path = MakeAudioFile("storm.wav");
+        using (var seed = _fx.CreateContext())
+        {
+            seed.Tracks.Add(new Track
+            {
+                Name = "My Storm", FilePath = path, Tags = "weather,mine",
+                Icon = "ra-lightning", Volume = 0.42f,
+                FadeInDuration = TimeSpan.FromSeconds(2),
+                FadeOutDuration = TimeSpan.FromSeconds(3),
+                BusId = BuiltInBusIds.Music,
+            });
+            seed.SaveChanges();
+        }
+
+        // Bundle has the same FilePath but different Name/Tags/Icon/fades.
+        var jsonPath = WriteExport(new
+        {
+            Schema = 3,
+            ExportedAt = DateTime.UtcNow,
+            Buses = BuiltInBusesJson(),
+            Tracks = new[] { new
+            {
+                Id = 1, Name = "DOWNLOADER NAME", FilePath = path, Tags = "ambient",
+                Icon = "ra-cloud", Volume = 1.0f,
+                FadeInTicks = 0L, FadeOutTicks = 0L, BusId = BuiltInBusIds.Ambient,
+            } },
+            Presets = Array.Empty<object>(),
+            Playlists = Array.Empty<object>(),
+            ShortcutPages = Array.Empty<object>(),
+        });
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        var t = read.Tracks.Single();
+        t.BusId.Should().Be(BuiltInBusIds.Ambient);          // bus corrected
+        t.Name.Should().Be("My Storm");                       // everything else preserved
+        t.Tags.Should().Be("weather,mine");
+        t.Icon.Should().Be("ra-lightning");
+        t.Volume.Should().BeApproximately(0.42f, 0.001f);
+        t.FadeInDuration.Should().Be(TimeSpan.FromSeconds(2));
+        t.FadeOutDuration.Should().Be(TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
+    public async Task Reimport_FreshNonCollidingTrack_StillGetsBundleBus()
+    {
+        // No existing row: a brand-new insert must still pick up the bundle's
+        // bus via the normal BuildTrackFromExport path.
+        var path = MakeAudioFile("new-sfx.wav");
+        var jsonPath = WriteExport(BusBundle(path, BuiltInBusIds.Sfx, name: "New SFX"));
+
+        var svc = new LibraryTransferService(_fx.Factory, _libraryManager);
+        var result = await svc.ImportLibraryAsync(jsonPath, new ImportOptions());
+
+        using var read = _fx.CreateContext();
+        read.Tracks.Single().BusId.Should().Be(BuiltInBusIds.Sfx);
+        result.TracksBusUpdated.Should().Be(0); // fresh insert, not a bus-correction
+    }
+
+    /// <summary>The three built-in buses as a schema-3 Buses table.</summary>
+    private static object[] BuiltInBusesJson() => new object[]
+    {
+        new { Id = 1, Name = "Music",   Order = 0, IsBuiltIn = true, Volume = 1.0f },
+        new { Id = 2, Name = "Ambient", Order = 1, IsBuiltIn = true, Volume = 1.0f },
+        new { Id = 3, Name = "SFX",     Order = 2, IsBuiltIn = true, Volume = 1.0f },
+    };
+
+    /// <summary>A minimal schema-3 bundle: built-in buses + one track on
+    /// <paramref name="busId"/> at <paramref name="path"/>.</summary>
+    private object BusBundle(string path, int busId, string name) => new
+    {
+        Schema = 3,
+        ExportedAt = DateTime.UtcNow,
+        Buses = BuiltInBusesJson(),
+        Tracks = new[] { new { Id = 1, Name = name, FilePath = path, BusId = busId } },
+        Presets = Array.Empty<object>(),
+        Playlists = Array.Empty<object>(),
+        ShortcutPages = Array.Empty<object>(),
+    };
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private string MakeAudioFile(string name)

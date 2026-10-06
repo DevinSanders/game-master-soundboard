@@ -309,6 +309,8 @@ public partial class SettingsViewModel : ViewModelBase
                           $"{result.PresetsImported} preset(s), " +
                           $"{result.PlaylistsImported} playlist(s), " +
                           $"{result.ShortcutsImported} page(s)";
+            if (result.TracksBusUpdated > 0)
+                summary += $". {result.TracksBusUpdated} existing track(s) moved to the bus from the library file";
             if (result.MissingFiles.Count > 0)
                 summary += $". {result.MissingFiles.Count} audio file(s) couldn't be located — add a search directory and re-run, or re-import those files manually";
 
