@@ -30,6 +30,9 @@ public sealed class LongPressStopController<TCardVm> where TCardVm : class
     private readonly Func<bool> _isEnabled;
     private readonly Action<TCardVm> _onLongPress;
 
+    private InputElement? _panel;
+    private IPointer? _pointer;
+
     public LongPressStopController(Func<bool> isEnabled, Action<TCardVm> onLongPress)
     {
         _isEnabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled));
@@ -37,9 +40,16 @@ public sealed class LongPressStopController<TCardVm> where TCardVm : class
     }
 
     /// <summary>Listen for the Holding gesture as it bubbles up from the cards
-    /// to the items panel.</summary>
-    public void Attach(InputElement itemsPanel) =>
+    /// to the items panel. A tunnelled PointerPressed also records the live
+    /// pointer so a fired hold can capture it (see <see cref="OnHolding"/>).</summary>
+    public void Attach(InputElement itemsPanel)
+    {
+        _panel = itemsPanel;
+        itemsPanel.AddHandler(InputElement.PointerPressedEvent, OnPressed, RoutingStrategies.Tunnel);
         itemsPanel.AddHandler(InputElement.HoldingEvent, OnHolding, RoutingStrategies.Bubble);
+    }
+
+    private void OnPressed(object? sender, PointerPressedEventArgs e) => _pointer = e.Pointer;
 
     private static Control? FindCard(Visual start)
     {
@@ -82,5 +92,11 @@ public sealed class LongPressStopController<TCardVm> where TCardVm : class
 
         _onLongPress(vm);
         e.Handled = true; // swallow so the OS long-press context menu doesn't open
+
+        // Capture the still-down pointer to the panel so the card Button
+        // receives PointerCaptureLost instead of a release — otherwise it
+        // raises Click on finger-up and re-toggles play/pause right after the
+        // Stop. The drag controller uses the same trick.
+        _pointer?.Capture(_panel);
     }
 }
