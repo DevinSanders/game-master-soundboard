@@ -130,3 +130,9 @@ ra_map.json
 
 # Local AI-assistant guidance (not published)
 CLAUDE.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+

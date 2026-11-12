@@ -3,13 +3,10 @@ name: Antigravity PR Review & Auto-Merge
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
-  workflow_run:
-    workflows: ["Build"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'PR number to review / evaluate for auto-merge'
+        description: 'PR number to process (conflict resolution, review, merge queue)'
         required: true
         type: number
 
@@ -18,30 +15,34 @@ permissions:
   pull-requests: write
   statuses: read
   checks: read
+  actions: write
 
+# Strict single-runner queue: ensures multiple PRs wait for previous PRs to finish merging
 concurrency:
-  group: antigravity-${{ github.event.pull_request.number || github.event.workflow_run.id || github.event.inputs.pr_number }}
+  group: antigravity-pr-queue
   cancel-in-progress: false
 
 jobs:
-  antigravity-review:
-    name: Antigravity Review & Auto-Merge
+  antigravity-queue:
+    name: Antigravity Queue & Review Engine
     runs-on: ubuntu-latest
     if: >
       github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'workflow_run' ||
       (github.event_name == 'pull_request_target' && github.event.pull_request.draft == false)
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repository (Full History for 3-way Merges)
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Run Antigravity Review Engine
+      - name: Run Antigravity Engine
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
