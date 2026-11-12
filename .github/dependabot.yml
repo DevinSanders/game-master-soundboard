@@ -26,6 +26,17 @@ updates:
       # dependabot from re-proposing the 8.x major bump.
       - dependency-name: "FluentAssertions"
         versions: [">=8.0.0"]
+      # NAudio 3.x introduces breaking changes to ISampleProvider (Span<float>
+      # overload) and Wasapi/WinMM packaging. Hold on NAudio 2.x until migrated.
+      - dependency-name: "NAudio"
+        versions: [">=3.0.0"]
+      - dependency-name: "NAudio.Core"
+        versions: [">=3.0.0"]
+      # Avalonia.Headless.XUnit standardizes on xUnit v3.
+      - dependency-name: "xunit.v3"
+        versions: [">=4.0.0"]
+      - dependency-name: "xunit.runner.visualstudio"
+        versions: [">=4.0.0"]
     groups:
       # All non-major bumps across every project in a single PR, so shared
       # packages move in lockstep.
