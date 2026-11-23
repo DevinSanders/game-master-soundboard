@@ -56,19 +56,35 @@ def get_pr_diff(pr_number: int, max_chars: int = 120_000) -> str:
     return diff
 
 
+SELF_CHECK_PREFIXES = ("Antigravity",)
+
+
 def get_pr_checks(pr_number: int) -> Dict[str, Any]:
-    """Retrieve CI status check results for a PR."""
+    """Retrieve external CI status check results for a PR (excluding Antigravity itself)."""
     code, stdout, stderr = run_command(["gh", "pr", "checks", str(pr_number), "--json", "name,state,bucket"], check=False)
     if code != 0 or not stdout.strip():
         return {"checks": [], "all_passed": False, "any_failed": False, "is_pending": True}
     try:
-        checks = json.loads(stdout)
+        raw_checks = json.loads(stdout)
+        checks = [
+            c for c in raw_checks
+            if not any((c.get("name") or "").startswith(prefix) for prefix in SELF_CHECK_PREFIXES)
+        ]
         if not checks:
             return {"checks": [], "all_passed": False, "any_failed": False, "is_pending": True}
 
-        all_passed = all(c.get("bucket") == "pass" or c.get("state") == "SUCCESS" for c in checks)
-        any_failed = any(c.get("bucket") == "fail" or c.get("state") == "FAILURE" for c in checks)
-        is_pending = any(c.get("bucket") == "pending" or c.get("state") in ("PENDING", "QUEUED", "IN_PROGRESS") for c in checks)
+        all_passed = all(
+            c.get("bucket") in ("pass", "skipping") or c.get("state") in ("SUCCESS", "SKIPPED", "NEUTRAL")
+            for c in checks
+        )
+        any_failed = any(
+            c.get("bucket") in ("fail", "cancel") or c.get("state") in ("FAILURE", "CANCELLED", "TIMED_OUT", "ERROR")
+            for c in checks
+        )
+        is_pending = any(
+            c.get("bucket") == "pending" or c.get("state") in ("PENDING", "QUEUED", "IN_PROGRESS", "EXPECTED", "WAITING", "REQUESTED")
+            for c in checks
+        )
         return {
             "checks": checks,
             "all_passed": all_passed,
@@ -81,7 +97,7 @@ def get_pr_checks(pr_number: int) -> Dict[str, Any]:
 
 
 def wait_for_ci_checks(pr_number: int, timeout_seconds: int = 900, poll_interval: int = 15) -> Dict[str, Any]:
-    """Wait for CI checks to register and complete."""
+    """Wait for external CI checks to register and complete."""
     print(f"[INFO] Waiting up to {timeout_seconds // 60} minutes for CI checks on PR #{pr_number}...")
     start_time = time.time()
     last_print = 0
@@ -100,7 +116,7 @@ def wait_for_ci_checks(pr_number: int, timeout_seconds: int = 900, poll_interval
             return checks_info
 
         if checks_info["all_passed"] and not checks_info["is_pending"] and len(checks) > 0:
-            print(f"[SUCCESS] All {len(checks)} CI checks passed for PR #{pr_number}!")
+            print(f"[SUCCESS] All {len(checks)} external CI checks passed for PR #{pr_number}!")
             return checks_info
 
         # Still running/pending
@@ -108,7 +124,11 @@ def wait_for_ci_checks(pr_number: int, timeout_seconds: int = 900, poll_interval
         if now - last_print > 45:
             last_print = now
             elapsed = int(now - start_time)
-            print(f"[INFO] CI checks in progress ({elapsed}s elapsed)...")
+            pending_names = [
+                c.get("name", "unknown") for c in checks
+                if c.get("bucket") == "pending" or c.get("state") in ("PENDING", "QUEUED", "IN_PROGRESS", "EXPECTED", "WAITING", "REQUESTED")
+            ]
+            print(f"[INFO] CI checks in progress ({elapsed}s elapsed): waiting on {pending_names}...")
 
         time.sleep(poll_interval)
 
@@ -613,7 +633,16 @@ def execute_automerge_if_eligible(
             print(f"[SUCCESS] 🚀 PR #{pr_number} successfully auto-merged!")
             return True
         else:
-            print(f"[ERROR] Could not complete merge: {err.strip() or out.strip()}", file=sys.stderr)
+            err_detail = err.strip() or out.strip()
+            print(f"[ERROR] Could not complete merge: {err_detail}", file=sys.stderr)
+            if "workflow" in err_detail.lower():
+                comment_body = (
+                    "ℹ️ **Antigravity Auto-Merge Blocked by GitHub Token Permissions**\n\n"
+                    "This PR was approved and all CI checks passed, but GitHub's default `GITHUB_TOKEN` "
+                    "does not have `workflow` permission to merge PRs that modify `.github/workflows/*` files.\n\n"
+                    "Please merge this PR manually."
+                )
+                run_command(["gh", "pr", "comment", str(pr_number), "--body", comment_body], check=False)
             return False
     else:
         print(f"[INFO] CI checks did not pass or timed out. Auto-merge skipped.")
