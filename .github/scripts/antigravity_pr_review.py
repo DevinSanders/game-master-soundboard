@@ -32,16 +32,22 @@ def run_command(cmd: List[str], check: bool = True) -> Tuple[int, str, str]:
 
 def get_pr_details(pr_number: int) -> Optional[Dict[str, Any]]:
     """Retrieve PR metadata using GitHub CLI."""
-    fields = "number,title,body,author,labels,isDraft,state,headRefName,baseRefName,mergeable,headRefOid"
-    code, stdout, stderr = run_command(["gh", "pr", "view", str(pr_number), "--json", fields], check=False)
-    if code != 0 or not stdout.strip():
-        print(f"[WARN] Failed to fetch PR #{pr_number} metadata: {stderr.strip()}", file=sys.stderr)
-        return None
-    try:
-        return json.loads(stdout)
-    except Exception as e:
-        print(f"[ERROR] Error parsing PR metadata JSON: {e}", file=sys.stderr)
-        return None
+    fields = "number,title,body,author,labels,isDraft,state,headRefName,baseRefName,mergeable,mergeStateStatus,headRefOid"
+    for attempt in range(3):
+        code, stdout, stderr = run_command(["gh", "pr", "view", str(pr_number), "--json", fields], check=False)
+        if code != 0 or not stdout.strip():
+            print(f"[WARN] Failed to fetch PR #{pr_number} metadata: {stderr.strip()}", file=sys.stderr)
+            return None
+        try:
+            details = json.loads(stdout)
+            if details.get("mergeable") == "UNKNOWN" and attempt < 2:
+                time.sleep(3)
+                continue
+            return details
+        except Exception as e:
+            print(f"[ERROR] Error parsing PR metadata JSON: {e}", file=sys.stderr)
+            return None
+    return None
 
 
 def get_pr_diff(pr_number: int, max_chars: int = 120_000) -> str:
@@ -96,7 +102,26 @@ def get_pr_checks(pr_number: int) -> Dict[str, Any]:
         return {"checks": [], "all_passed": False, "any_failed": False, "is_pending": True}
 
 
-def wait_for_ci_checks(pr_number: int, timeout_seconds: int = 900, poll_interval: int = 15) -> Dict[str, Any]:
+def get_latest_build_conclusion(head_ref: str) -> Optional[str]:
+    """Check if the latest Build workflow run on head_ref is blocked by action_required."""
+    if not head_ref:
+        return None
+    code, stdout, _ = run_command(
+        ["gh", "run", "list", "--branch", head_ref, "--workflow", "Build", "--limit", "1", "--json", "status,conclusion"],
+        check=False
+    )
+    if code != 0 or not stdout.strip():
+        return None
+    try:
+        runs = json.loads(stdout)
+        if runs:
+            return runs[0].get("conclusion")
+    except Exception:
+        pass
+    return None
+
+
+def wait_for_ci_checks(pr_number: int, head_ref: Optional[str] = None, timeout_seconds: int = 900, poll_interval: int = 15) -> Dict[str, Any]:
     """Wait for external CI checks to register and complete."""
     print(f"[INFO] Waiting up to {timeout_seconds // 60} minutes for CI checks on PR #{pr_number}...")
     start_time = time.time()
@@ -106,8 +131,17 @@ def wait_for_ci_checks(pr_number: int, timeout_seconds: int = 900, poll_interval
         checks_info = get_pr_checks(pr_number)
         checks = checks_info.get("checks", [])
 
-        # If no checks are registered yet (right after push), wait
+        # If no checks are registered yet (right after push), check for action_required or wait briefly
         if not checks:
+            elapsed = int(time.time() - start_time)
+            if head_ref and elapsed >= 30:
+                conclusion = get_latest_build_conclusion(head_ref)
+                if conclusion == "action_required":
+                    print(f"[BLOCKED] Build workflow for PR #{pr_number} requires manual maintainer approval ('action_required').")
+                    return {"checks": [], "all_passed": False, "any_failed": True, "is_pending": False, "action_required": True}
+                if elapsed >= 90:
+                    print(f"[WARN] No external CI checks reported after {elapsed}s for PR #{pr_number}.")
+                    return {"checks": [], "all_passed": False, "any_failed": False, "is_pending": False}
             time.sleep(poll_interval)
             continue
 
@@ -348,7 +382,15 @@ def sync_and_resolve_conflicts(
     if not head_ref:
         return {"success": False, "error": "No headRefName"}
 
-    print(f"\n[QUEUE] Synchronizing PR #{pr_number} branch '{head_ref}' with latest main...")
+    mergeable = pr_details.get("mergeable", "UNKNOWN")
+    merge_state = pr_details.get("mergeStateStatus", "UNKNOWN")
+    print(f"\n[QUEUE] Checking PR #{pr_number} branch '{head_ref}' (mergeable={mergeable}, mergeStateStatus={merge_state})...")
+
+    if mergeable != "CONFLICTING" and merge_state not in ("DIRTY", "BEHIND"):
+        print(f"[INFO] Branch '{head_ref}' has no conflicts and does not require syncing with main. Preserving existing CI checks.")
+        return {"success": True, "conflicts_resolved": False, "pushed": False}
+
+    print(f"[QUEUE] Synchronizing PR #{pr_number} branch '{head_ref}' with latest main...")
     run_command(["git", "config", "user.name", "github-actions[bot]"])
     run_command(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"])
 
@@ -613,8 +655,16 @@ def execute_automerge_if_eligible(
         return False
 
     # Wait for CI checks to complete
-    checks_info = wait_for_ci_checks(pr_number, timeout_seconds=900, poll_interval=15)
+    checks_info = wait_for_ci_checks(pr_number, head_ref=pr_details.get("headRefName"), timeout_seconds=900, poll_interval=15)
     print(f"[INFO] Final CI Checks Status: all_passed={checks_info['all_passed']}, any_failed={checks_info['any_failed']}")
+
+    if checks_info.get("action_required"):
+        comment_body = (
+            "ℹ️ **Antigravity Auto-Merge Waiting on Workflow Approval**\n\n"
+            "The CI `Build` workflow on the latest commit is currently in `action_required` state and needs manual approval in the Actions tab before merging."
+        )
+        run_command(["gh", "pr", "comment", str(pr_number), "--body", comment_body], check=False)
+        return False
 
     if checks_info["any_failed"]:
         print(f"[BLOCKED] PR #{pr_number} has failing CI checks. Auto-merge aborted.")
@@ -708,24 +758,38 @@ def main():
 
     # Refresh PR details and diff after sync
     pr_details = get_pr_details(pr_number)
-    diff = get_pr_diff(pr_number)
+    head_oid = pr_details.get("headRefOid")
 
-    # Step 2: Run Antigravity Review
-    print(f"[INFO] Querying Antigravity ({model}) for PR review...")
-    prompt = build_review_prompt(pr_details, diff, guidelines)
-    review = call_gemini_api(prompt, api_key, model=model)
+    # Step 2: Check if current head commit already has an APPROVED bot review
+    bot_reviews = get_existing_bot_reviews(pr_number)
+    already_approved = any(
+        r.get("state") == "APPROVED" and (r.get("commit") or {}).get("oid") == head_oid
+        for r in bot_reviews
+    )
 
-    if not review:
-        fallback_model = "gemini-2.5-flash" if model != "gemini-2.5-flash" else "gemini-1.5-flash"
-        print(f"[WARN] {model} query failed. Attempting fallback to {fallback_model}...")
-        review = call_gemini_api(prompt, api_key, model=fallback_model)
+    if already_approved:
+        print(f"[INFO] Commit {head_oid[:8]} already has an APPROVED Antigravity review. Skipping duplicate review.")
+        review = {
+            "verdict": "APPROVE",
+            "auto_merge_recommendation": {"eligible": True, "reason": "Previously approved for current commit."}
+        }
+    else:
+        diff = get_pr_diff(pr_number)
+        print(f"[INFO] Querying Antigravity ({model}) for PR review...")
+        prompt = build_review_prompt(pr_details, diff, guidelines)
+        review = call_gemini_api(prompt, api_key, model=model)
 
-    if not review:
-        print("[ERROR] Failed to obtain AI review response from Gemini API.", file=sys.stderr)
-        sys.exit(1)
+        if not review:
+            fallback_model = "gemini-2.5-flash" if model != "gemini-2.5-flash" else "gemini-1.5-flash"
+            print(f"[WARN] {model} query failed. Attempting fallback to {fallback_model}...")
+            review = call_gemini_api(prompt, api_key, model=fallback_model)
 
-    print(f"[INFO] Review generated successfully. Verdict: {review.get('verdict')}")
-    submit_review_to_github(pr_number, review, pr_details)
+        if not review:
+            print("[ERROR] Failed to obtain AI review response from Gemini API.", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"[INFO] Review generated successfully. Verdict: {review.get('verdict')}")
+        submit_review_to_github(pr_number, review, pr_details)
 
     # Step 3: Evaluate Auto-Merge & Wait on CI checks
     merged = execute_automerge_if_eligible(pr_number, pr_details, review)
