@@ -195,6 +195,7 @@ def read_repository_guidelines() -> str:
         ".github/copilot-instructions.md",
         "CONTRIBUTING.md",
         "CLAUDE.md",
+        "README.md",
         ".github/dependabot.yml"
     ]
     sections = []
@@ -483,30 +484,54 @@ def sync_and_resolve_conflicts(
     return {"success": True, "conflicts_resolved": True, "pushed": True, "resolved_files": resolved_files}
 
 
-def trigger_next_open_prs(current_pr_number: int) -> None:
-    """If there are other open PRs waiting in the repository, dispatch workflow for them."""
-    print(f"\n[QUEUE] Checking for other open pull requests to process in sequence...")
-    code, stdout, stderr = run_command(["gh", "pr", "list", "--json", "number,title,isDraft"], check=False)
+def trigger_next_open_prs(current_pr_number: int, merged: bool = True) -> None:
+    """Dispatch the Antigravity queue for the next eligible open PR (one at a time)."""
+    print(f"\n[QUEUE] Checking for the next open pull request to process...")
+    code, stdout, stderr = run_command(
+        ["gh", "pr", "list", "--json", "number,title,isDraft,headRefOid,reviews"],
+        check=False
+    )
     if code != 0 or not stdout.strip():
         return
     try:
-        prs = json.loads(stdout)
+        prs = sorted(json.loads(stdout), key=lambda p: p.get("number", 0))
         for p in prs:
             num = p.get("number")
-            if num and num != current_pr_number and not p.get("isDraft"):
-                print(f"[QUEUE] Dispatching Antigravity queue for next PR #{num} ('{p.get('title')}')...")
-                run_command(["gh", "workflow", "run", "Antigravity PR Review & Auto-Merge", "-f", f"pr_number={num}"], check=False)
+            if not num or num == current_pr_number or p.get("isDraft"):
+                continue
+
+            head_oid = p.get("headRefOid")
+            bot_reviews = [
+                r for r in (p.get("reviews") or [])
+                if "github-actions" in ((r.get("author") or {}).get("login", ""))
+                and (r.get("commit") or {}).get("oid") == head_oid
+            ]
+
+            if merged:
+                # Main just advanced: re-evaluate unreviewed or previously approved PRs, skip CHANGES_REQUESTED on current SHA
+                if any(r.get("state") == "CHANGES_REQUESTED" for r in bot_reviews):
+                    continue
+            else:
+                # Current PR wasn't merged: only advance to PRs that have not been reviewed on their current SHA yet
+                if bot_reviews:
+                    continue
+
+            print(f"[QUEUE] Dispatching Antigravity queue for next PR #{num} ('{p.get('title')}')...")
+            run_command(["gh", "workflow", "run", "Antigravity PR Review & Auto-Merge", "-f", f"pr_number={num}"], check=False)
+            break
     except Exception as e:
         print(f"[INFO] Note on triggering next open PRs: {e}")
 
 
 def build_review_prompt(pr_details: Dict[str, Any], diff: str, guidelines: str) -> str:
-    return f"""You are Antigravity, an expert software architect and automated code reviewer reviewing a pull request for this .NET repository.
+    repo_name = os.environ.get("GITHUB_REPOSITORY", "unknown")
+    return f"""You are Antigravity, an expert software architect and automated code reviewer reviewing a pull request for repository '{repo_name}' (.NET 10 / Game Master Sound Board ecosystem).
 
 Repository guidelines and architectural constraints:
 {guidelines}
 
 Pull Request Details:
+- Repository: {repo_name}
 - Number: #{pr_details.get('number')}
 - Title: {pr_details.get('title')}
 - Author: {pr_details.get('author', {}).get('login')}
@@ -521,12 +546,10 @@ Git Diff:
 ```
 
 Instructions:
-1. Thoroughly inspect the diff against repository conventions:
-   - Layered architecture: Desktop -> UI -> Core -> PluginApi (no Avalonia in Core; reflection for Windows NAudio in Core).
-   - Audio pipeline safety (WaveBuffer aliasing rules; float conversions).
-   - SQLite migrations (append-only in SchemaMigrations.cs).
-   - MVVM patterns (CommunityToolkit.Mvvm, ObservableProperty, compiled bindings).
-   - For dependency/NuGet upgrades: check for breaking changes, transitive package downgrades (NU1605), or licensing issues (e.g. FluentAssertions 8+ license change).
+1. Thoroughly inspect the diff against the repository's conventions and .NET 10 best practices:
+   - Host app (if applicable): Desktop -> UI -> Core -> PluginApi layering, WaveBuffer aliasing rules, SQLite SchemaMigrations.cs, CommunityToolkit.Mvvm.
+   - Plugin / theme repos (if applicable): SoundBoard.PluginApi compatibility, Avalonia theme resource completeness, clean net10.0 packaging without unexpected dependencies.
+   - For dependency/NuGet/GitHub Actions upgrades: check for breaking changes, major-version skew against .NET 10 / EF Core 10 / SoundBoard.PluginApi, transitive package downgrades (NU1605), or licensing changes (e.g. FluentAssertions 8+ commercial license, NAudio 3.x breaking changes, xUnit v4 compatibility with Avalonia.Headless.XUnit).
 2. Choose one Verdict:
    - "APPROVE": Changes are safe, adhere to conventions, and no breaking bugs/violations were found.
    - "COMMENT": Minor suggestions, advisory notes, or informative feedback; non-blocking.
@@ -794,9 +817,8 @@ def main():
     # Step 3: Evaluate Auto-Merge & Wait on CI checks
     merged = execute_automerge_if_eligible(pr_number, pr_details, review)
 
-    # Step 4: If merged, notify / trigger subsequent open PRs in queue to rebase and evaluate against new main
-    if merged:
-        trigger_next_open_prs(pr_number)
+    # Step 4: Advance queue to the next eligible open PR (re-evaluating on merge or advancing to unreviewed PRs)
+    trigger_next_open_prs(pr_number, merged=merged)
 
 
 if __name__ == "__main__":
